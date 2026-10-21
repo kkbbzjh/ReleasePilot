@@ -49,15 +49,16 @@ internal static class Program
         var db=new Database(folder);db.Save(subscription);
         var main=new MainWindow(db);main.Show();await Pump();
         ((DataGrid)main.FindName("SubscriptionsGrid")).SelectedIndex=0;await Pump();Capture(main,"subscriptions");
-        using(var host=new BackgroundHost(main))
+        using(var host=new DesktopLifetime(main))
         {
-            Check(!host.Enabled,"tray controller starts with background monitoring disabled");
-            host.Show();Check(main.IsVisible,"tray controller restores the main window");
+            host.Show();Check(main.IsVisible,"desktop lifetime restores the main window");
         }
         var settings=new BackgroundWindow(new BackgroundSettings()){Owner=main};settings.Show();await Pump();
-        Check(((CheckBox)settings.FindName("EnabledOption")).IsChecked==false,"background monitoring defaults to opt in");
+        Check(((CheckBox)settings.FindName("EnabledOption")).IsChecked==false,"service monitoring is opt in until installed");
         Check(((TextBox)settings.FindName("IntervalInput")).Text=="60","background interval defaults to one hour");
-        Capture(settings,"background-settings");settings.Close();
+        Check(FindVisual<Button>(main).Any(b=>Equals(b.Content,"打开临时目录")),"temporary directory is accessible directly from main window");
+        Check(!FindVisual<Button>(settings).Any(b=>b.Content?.ToString()?.Contains("临时")==true),"service settings do not contain unrelated file actions");
+        Capture(settings,"service-settings");settings.Close();
         var addButton=FindVisual<Button>(main).First(button=>Equals(button.Content,"＋ 添加订阅"));
         Check(ReferenceEquals(addButton.Style,main.FindResource("PrimaryButton")),"main primary action uses the shared theme");
         var release=new ReleaseInfo("v1.2.0","https://github.com/owner/example/releases/tag/v1.2.0","Example notes",[

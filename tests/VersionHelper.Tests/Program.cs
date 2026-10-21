@@ -96,15 +96,4 @@ if(args.Length==2)
     Console.WriteLine("PASS published EXE version matches release tag");
 }
 
-var background=new BackgroundSettings();
-void NotifyCheck(bool value,string message){if(!value)throw new Exception(message);}
-NotifyCheck(!background.Enabled&&!background.StartAtLogin,"background features must be opt in");
-NotifyCheck(background.ShouldNotify("owner/app","v2","发现更新","v1"),"newer release notifies");
-background.NotifiedTags["owner/app"]="v2";
-NotifyCheck(!background.ShouldNotify("OWNER/app","v2","发现更新","v1"),"same tag notification deduplicates ignoring repository casing");
-NotifyCheck(background.ShouldNotify("owner/app","v3","需要确认","v2"),"unknown version notifies when upstream release changes");
-NotifyCheck(!background.ShouldNotify("owner/app","v3","已是最新（已确认）","v2"),"already installed release must not notify");
-NotifyCheck(!background.ShouldNotify("owner/app","v3","本地版本较新","v2"),"local newer version must not notify");
-NotifyCheck(!background.ShouldNotify("owner/app","v3","未关联本地版本",""),"first unknown local version has no false update alert");
-NotifyCheck(!background.ShouldNotify("owner/app","","发现更新","v2"),"missing release never notifies");
-Console.WriteLine("PASS 8 background notification policy checks");
+await MonitorChecks.RunAsync();

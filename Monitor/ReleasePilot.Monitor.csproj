@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup>
+  <OutputType>WinExe</OutputType><TargetFramework>net10.0-windows</TargetFramework>
+  <ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+  <PublishAot>true</PublishAot><InvariantGlobalization>true</InvariantGlobalization>
+  <AssemblyName>ReleasePilot.Monitor</AssemblyName><Version>0.3.1</Version>
+ </PropertyGroup>
+ <ItemGroup>
+  <Compile Include="../Shared/MonitorProtocol.cs" Link="MonitorProtocol.cs"/>
+  <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.2"/>
+ </ItemGroup>
+</Project>

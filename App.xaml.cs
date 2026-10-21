@@ -5,7 +5,7 @@ namespace ReleasePilot;
 public partial class App : Application
 {
     private Mutex? _instance;
-    private BackgroundHost? _background;
+    private DesktopLifetime? _desktop;
     public static string InstanceName=>"ReleasePilot-"+Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(Environment.UserName+BackgroundSettings.DataDirectory)))[..24];
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -14,7 +14,7 @@ public partial class App : Application
         {
             ShutdownMode=ShutdownMode.OnExplicitShutdown;
             try{await UpdateService.CompleteSelfReplacementAsync(e.Args[1]);}
-            catch(Exception ex){AppDialog.Show($"自更新未完成：{ex.Message}\n可在后台设置中打开临时更新目录。","ReleasePilot 更新助手");}
+            catch(Exception ex){AppDialog.Show($"自更新未完成：{ex.Message}\n可在主界面打开临时更新目录。","ReleasePilot 更新助手");}
             Shutdown();return;
         }
         _instance=new Mutex(true,InstanceName,out var first);
@@ -29,9 +29,14 @@ public partial class App : Application
         }
         if(e.Args.Length==3 && e.Args[0]=="--cleanup-update" && int.TryParse(e.Args[2],out var helperId))
             _=CleanupHelperAsync(e.Args[1],helperId);
+        WindowsMonitorManager.ImportLatest(new Database());
         var window=new MainWindow();MainWindow=window;
-        _background=new BackgroundHost(window);window.ConfigureBackground=_background.Configure;
-        if(!e.Args.Contains("--background")||!_background.Enabled)window.Show();
+        _desktop=new DesktopLifetime(window);
+        try{WindowsMonitorManager.RemoveLegacyStartup();if(WindowsMonitorManager.Installed)WindowsMonitorManager.RegisterProtocol();}catch(Exception ex){window.SetBackgroundStatus("清理旧启动项失败："+ex.Message);}
+        window.ConfigureBackground=()=>new BackgroundWindow(BackgroundSettings.Load()){Owner=window}.ShowDialog();
+        window.SubscriptionsChanged=()=>{try{WindowsMonitorManager.Export(new Database(),BackgroundSettings.Load());}catch(Exception ex){window.SetBackgroundStatus("同步服务订阅失败："+ex.Message);}};
+        window.SubscriptionsChanged();
+        window.Show();
     }
     private static async Task CleanupHelperAsync(string path,int helperId)
     {
@@ -46,5 +51,5 @@ public partial class App : Application
         }
         catch(Exception ex) when(ex is System.IO.IOException or UnauthorizedAccessException or OperationCanceledException){}
     }
-    protected override void OnExit(ExitEventArgs e){_background?.Dispose();_instance?.Dispose();base.OnExit(e);}
+    protected override void OnExit(ExitEventArgs e){_desktop?.Dispose();_instance?.Dispose();base.OnExit(e);}
 }

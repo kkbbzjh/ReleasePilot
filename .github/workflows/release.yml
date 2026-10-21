@@ -30,6 +30,11 @@ jobs:
           "exe_name=ReleasePilot-$tag.exe" >> $env:GITHUB_OUTPUT
       - name: Test versions and update operations
         run: dotnet run --project tests/VersionHelper.Tests/VersionHelper.Tests.csproj -c Release
+      - name: Publish native Windows service
+        run: dotnet publish Monitor/ReleasePilot.Monitor.csproj -c Release -r win-x64 -o service-payload -p:DebugType=none -p:DebugSymbols=false
+      - name: Test service installation and lifecycle
+        shell: pwsh
+        run: ./Scripts/TestService.ps1
       - name: Test shared WPF theme and dialogs
         timeout-minutes: 3
         run: dotnet run --project tests/UiSmoke.Tests/UiSmoke.Tests.csproj -c Release

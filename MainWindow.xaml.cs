@@ -15,11 +15,17 @@ public partial class MainWindow : Window
     private Subscription? Selected=>SubscriptionsGrid.SelectedItem as Subscription;
     public MainWindow():this(new Database()) { }
     public MainWindow(Database database){_db=database;InitializeComponent();SubscriptionsGrid.ItemsSource=_items;Reload();}
+    public Action? SubscriptionsChanged {get;set;}
     public Action? ConfigureBackground {get;set;}
     public bool IsChecking {get;private set;}
     public void RefreshSubscriptions(){if(!IsChecking && OwnedWindows.Count==0)Reload();}
     public void SetBackgroundStatus(string text)=>StatusText.Text=text;
     private void Background_Click(object sender,RoutedEventArgs e)=>ConfigureBackground?.Invoke();
+    private void OpenUpdates_Click(object sender,RoutedEventArgs e)
+    {
+        try{var path=System.IO.Path.Combine(BackgroundSettings.DataDirectory,"Updates");System.IO.Directory.CreateDirectory(path);Process.Start(new ProcessStartInfo(path){UseShellExecute=true});}
+        catch(Exception ex){AppDialog.Show(this,ex.Message,"无法打开临时目录");}
+    }
     private void Reload()
     {
         var selectedRepo=Selected?.Repo;
@@ -29,6 +35,7 @@ public partial class MainWindow : Window
         LinkedCountText.Text=_items.Count(s=>!string.IsNullOrWhiteSpace(s.ExePath)).ToString();
         if(selectedRepo is not null)SubscriptionsGrid.SelectedItem=_items.FirstOrDefault(s=>s.Repo==selectedRepo);
         StatusText.Text=$"已订阅 {_items.Count} 个仓库 · 数据保存在本机";
+        SubscriptionsChanged?.Invoke();
     }
     private void RepoInput_KeyDown(object sender,KeyEventArgs e)
     {

@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../Shared/MonitorProtocol.cs" Link="MonitorProtocol.cs" />
+    <Compile Include="../../Monitor/MonitorEngine.cs" Link="MonitorEngine.cs" />
     <Compile Include="../../Services/BackgroundSettings.cs" Link="BackgroundSettings.cs" />
     <Compile Include="../../Services/VersionHelper.cs" Link="VersionHelper.cs" />
     <Compile Include="../../Services/InstallationConfirmation.cs" Link="InstallationConfirmation.cs" />

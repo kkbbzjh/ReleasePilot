@@ -3,17 +3,20 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
-    <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ReleasePilot</AssemblyName>
-    <Version>0.3.0</Version>
+    <Version>0.3.1</Version>
     <ApplicationIcon>Assets/ReleasePilot.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <Using Remove="System.Windows.Forms" />
     <Using Remove="System.Drawing" />
-    <Compile Remove="tests/**/*.cs" />
+    <Compile Remove="tests/**/*.cs;Monitor/**/*.cs" />
+    <EmbeddedResource Include="Scripts/ManageNotifications.ps1" LogicalName="ReleasePilot.ManageNotifications.ps1" />
+    <EmbeddedResource Include="Scripts/ManageService.ps1" LogicalName="ReleasePilot.ManageService.ps1" />
+    <EmbeddedResource Include="service-payload/ReleasePilot.Monitor.exe" LogicalName="ReleasePilot.Monitor.exe" Condition="Exists('service-payload/ReleasePilot.Monitor.exe')" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.2" />
     <Resource Include="Assets/logo.png" />
     <Resource Include="Assets/ReleasePilot.ico" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.2" />

@@ -24,8 +24,8 @@
         <Grid Grid.Column="1" Margin="28,28,28,16">
             <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*" MinHeight="110"/><RowDefinition Height="8"/><RowDefinition Height="240" MinHeight="190"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <Grid Margin="0,0,0,16">
-                <StackPanel><TextBlock Text="软件订阅" FontSize="27" FontWeight="SemiBold"/><TextBlock Text="集中追踪 GitHub Release，掌握你的软件更新。" Foreground="{StaticResource Muted}" Margin="0,7,0,0"/></StackPanel>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><Button Content="后台与通知" Click="Background_Click" Margin="0,0,8,0"/><Button Content="↻  检查全部更新" Click="CheckAll_Click" Padding="18,11"/></StackPanel>
+                <StackPanel><TextBlock Text="软件订阅" FontSize="27" FontWeight="SemiBold"/><TextBlock Text="集中追踪 GitHub Release。" Foreground="{StaticResource Muted}" Margin="0,7,0,0"/></StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><Button Content="打开临时目录" Click="OpenUpdates_Click" Margin="0,0,8,0" ToolTip="打开临时下载和历史更新目录"/><Button Content="后台服务" Click="Background_Click" Margin="0,0,8,0"/><Button Content="↻  检查全部更新" Click="CheckAll_Click" Padding="18,11"/></StackPanel>
             </Grid>
             <Grid Grid.Row="1" Margin="0,0,0,16">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
