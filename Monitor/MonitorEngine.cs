@@ -9,11 +9,12 @@ public sealed class MonitorEngine
         MonitorFiles.RejectLinks(directory);
         var configPath=Path.Combine(directory,"config.json");var statePath=Path.Combine(directory,"state.json");
         var config=JsonSerializer.Deserialize(MonitorFiles.Read(configPath),MonitorJson.Default.MonitorProfile)??new();
+        if(config.Subscriptions is null)throw new JsonException("订阅配置无效，请在桌面界面重新保存服务设置。");
         if(!config.Enabled)return;
         MonitorState state;
         try{state=JsonSerializer.Deserialize(MonitorFiles.Read(statePath),MonitorJson.Default.MonitorState)??new();}
         catch(Exception ex) when(ex is IOException or JsonException){state=new();}
-        state.Releases=new(state.Releases,StringComparer.OrdinalIgnoreCase);
+        state.Releases=new(state.Releases??new(),StringComparer.OrdinalIgnoreCase);
         if(state.Revision==config.Revision && DateTimeOffset.UtcNow-state.LastCheckUtc<TimeSpan.FromMinutes(Math.Clamp(config.IntervalMinutes,5,1440)))return;
         using var handler=new HttpClientHandler();
         if(!string.IsNullOrWhiteSpace(config.ProxyUrl))
@@ -25,7 +26,7 @@ public sealed class MonitorEngine
         http.DefaultRequestHeaders.UserAgent.ParseAdd("ReleasePilot-Monitor/0.3.1");
         var releases=new Dictionary<string,WatchRelease>(StringComparer.OrdinalIgnoreCase);
         state.Error="";
-        foreach(var subscription in config.Subscriptions.Where(x=>MonitorFiles.ValidRepo(x.Repo)).DistinctBy(x=>x.Repo,StringComparer.OrdinalIgnoreCase).Take(200))
+        foreach(var subscription in config.Subscriptions.OfType<WatchSubscription>().Where(x=>MonitorFiles.ValidRepo(x.Repo)).DistinctBy(x=>x.Repo,StringComparer.OrdinalIgnoreCase).Take(200))
         {
             token.ThrowIfCancellationRequested();
             state.Releases.TryGetValue(subscription.Repo,out var old);
@@ -43,7 +44,7 @@ public sealed class MonitorEngine
                     using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync(token));
                     var root=json.RootElement;
                     release=new(){Tag=root.GetProperty("tag_name").GetString()??"",Url=root.GetProperty("html_url").GetString()??"",Notes=root.TryGetProperty("body",out var notes)?notes.GetString()??"":""};
-                    if(release.Notes.Length>8000)release.Notes=release.Notes[..8000];
+                    if(release.Notes.Length>1500)release.Notes=release.Notes[..1500];
                 }
                 if(release is null)continue;
                 release.Notify=MonitorFiles.NeedsNotification(subscription,old,release.Tag);release.CheckedAt=DateTimeOffset.UtcNow;

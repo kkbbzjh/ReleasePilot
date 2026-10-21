@@ -29,6 +29,9 @@ internal static class MonitorChecks
             config.Enabled=false;Save();await engine.CheckAsync(directory,CancellationToken.None,Fetch);Check(requests==1&&MonitorFiles.Pending(config,state,new()).Count==0,"disabled profile neither checks nor notifies");
             config.Enabled=true;watch.InstalledTag="v2";config.Revision="b";Save();await engine.CheckAsync(directory,CancellationToken.None,Fetch);
             Check(!State().Releases[watch.Repo].Notify,"installed updates clear pending reminders");
+            config.Revision="bad";Save();
+            File.WriteAllText(Path.Combine(directory,"config.json"),"{\"Enabled\":true,\"Subscriptions\":null}");
+            try{await engine.CheckAsync(directory,CancellationToken.None,Fetch);throw new Exception("Malformed config accepted");}catch(JsonException){checks++;}
             config.Revision="c";Save();
             await engine.CheckAsync(directory,CancellationToken.None,repo=>{config.Subscriptions.Clear();config.Revision="d";Save();return Fetch(repo);});
             Check(State().Revision=="b","configuration changed during HTTP request must win");

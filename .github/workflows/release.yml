@@ -51,6 +51,9 @@ jobs:
         run: dotnet restore ReleasePilot.csproj -r win-x64
       - name: Publish single-file EXE
         run: dotnet publish ReleasePilot.csproj -c Release -r win-x64 --self-contained true --no-restore -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -p:DebugSymbols=false -o publish
+      - name: Verify closing the desktop exits its process
+        shell: pwsh
+        run: ./Scripts/TestDesktopExit.ps1
       - name: Verify published EXE version
         env:
           RELEASE_TAG: ${{ steps.release_metadata.outputs.tag }}

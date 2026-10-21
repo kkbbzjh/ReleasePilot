@@ -53,6 +53,10 @@ internal static class Program
         {
             host.Show();Check(main.IsVisible,"desktop lifetime restores the main window");
         }
+        using(var payload=typeof(MainWindow).Assembly.GetManifestResourceStream("ReleasePilot.Monitor.exe"))
+        {
+            Check(payload is not null && payload.ReadByte()=='M' && payload.ReadByte()=='Z',"desktop EXE embeds a native Windows service payload");
+        }
         var settings=new BackgroundWindow(new BackgroundSettings()){Owner=main};settings.Show();await Pump();
         Check(((CheckBox)settings.FindName("EnabledOption")).IsChecked==false,"service monitoring is opt in until installed");
         Check(((TextBox)settings.FindName("IntervalInput")).Text=="60","background interval defaults to one hour");

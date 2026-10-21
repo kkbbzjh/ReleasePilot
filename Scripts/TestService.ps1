@@ -9,7 +9,7 @@ try {
  $info=Get-CimInstance Win32_Service -Filter "Name='$name'"
  if($info.StartName -ne 'NT AUTHORITY\LocalService' -or $info.StartMode -ne 'Auto'){throw 'Service must use LocalService and automatic startup'}
  $process=Get-Process -Id $info.ProcessId
- Write-Host "Native service running: working set $([Math]::Round($process.WorkingSet64/1MB,1)) MB; binary $((Get-Item 'service-payload/ReleasePilot.Monitor.exe').Length) bytes"
+ Write-Host "::notice title=Native service resource check::Native service running: working set $([Math]::Round($process.WorkingSet64/1MB,1)) MB; binary $((Get-Item 'service-payload/ReleasePilot.Monitor.exe').Length) bytes"
  $profile=Join-Path $env:ProgramData "ReleasePilot\Monitor\$sid"
  @{Enabled=$true;Revision='ci';IntervalMinutes=60;Subscriptions=@()} | ConvertTo-Json | Set-Content (Join-Path $profile 'config.json') -Encoding utf8
  $deadline=(Get-Date).AddSeconds(45)

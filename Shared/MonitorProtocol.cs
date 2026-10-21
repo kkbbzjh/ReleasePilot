@@ -46,7 +46,7 @@ public static class MonitorFiles
 {
     public const string ServiceName="ReleasePilotMonitor";
     public static string Root=>Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),"ReleasePilot","Monitor");
-    public static bool ValidRepo(string repo)=>Regex.IsMatch(repo,@"\A[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9_.-]{1,100}\z") && !repo.EndsWith("/.") && !repo.EndsWith("/..");
+    public static bool ValidRepo(string repo)=>!string.IsNullOrWhiteSpace(repo)&&Regex.IsMatch(repo,@"\A[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9_.-]{1,100}\z") && !repo.EndsWith("/.") && !repo.EndsWith("/..");
     public static bool ValidSid(string sid)=>Regex.IsMatch(sid,@"\AS-1-5-21-(\d+-){2}\d+-\d+\z") || Regex.IsMatch(sid,@"\AS-1-12-1-(\d+-){3}\d+\z");
     public static void RejectLinks(string path)
     {
