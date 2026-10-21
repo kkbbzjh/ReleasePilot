@@ -23,13 +23,14 @@ internal static class ScreenshotGallery
             new(){Repo="microsoft/PowerToys",ExePath=@"C:\Apps\PowerToys\PowerToys.exe",LocalVersion="0.94.0",LatestVersion="v0.94.0",ConfirmedTag="v0.94.0",Status="已是最新（已确认）",CheckedAt=checkedAt},
             new(){Repo="ShareX/ShareX",ExePath=@"C:\Apps\ShareX\ShareX.exe",LocalVersion="18.0.1",LatestVersion="v18.0.1",Status="已是最新",CheckedAt=checkedAt}
         })database.Save(item);
-        var main=new MainWindow(database){Width=1280,Height=900};main.Show();
+        var main=new MainWindow(database){Width=1320,Height=940,MinWidth=1320,MinHeight=940};main.Show();
         await Pump();
         var grid=(DataGrid)main.FindName("SubscriptionsGrid");
         grid.SelectedItem=grid.Items.Cast<Subscription>().First(s=>s.Repo=="kkbbzjh/ReleasePilot");
         ((TextBlock)main.FindName("StatusText")).Text="ReleasePilot v0.3.3 · 示例订阅展示 · 数据保存在本机";
+        ((TextBox)main.FindName("NotesBox")).ScrollToEnd();
         await Pump();Capture(main,"main");
-        var settings=new BackgroundWindow(new BackgroundSettings()){Owner=main};settings.Show();
+        var settings=new BackgroundWindow(new BackgroundSettings()){Owner=main,Height=800,MinHeight=800};settings.Show();
         await Pump();Capture(settings,"service");settings.Close();main.Close();
         Console.WriteLine("Captured real WPF application screenshots with demonstration subscriptions.");
     }
@@ -42,8 +43,17 @@ internal static class ScreenshotGallery
     {
         window.UpdateLayout();
         var directory=Path.Combine(Directory.GetCurrentDirectory(),"docs","screenshots");Directory.CreateDirectory(directory);
-        var bitmap=new RenderTargetBitmap((int)Math.Ceiling(window.ActualWidth*1.5),(int)Math.Ceiling(window.ActualHeight*1.5),144,144,PixelFormats.Pbgra32);
-        bitmap.Render(window);var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        var content=(FrameworkElement)window.Content;
+        var width=content.ActualWidth+content.Margin.Left+content.Margin.Right;
+        var height=content.ActualHeight+content.Margin.Top+content.Margin.Bottom;
+        var visual=new DrawingVisual();
+        using(var drawing=visual.RenderOpen())
+        {
+            drawing.DrawRectangle(window.Background,null,new Rect(0,0,width,height));
+            drawing.DrawRectangle(new VisualBrush(content),null,new Rect(content.Margin.Left,content.Margin.Top,content.ActualWidth,content.ActualHeight));
+        }
+        var bitmap=new RenderTargetBitmap((int)Math.Ceiling(width*1.5),(int)Math.Ceiling(height*1.5),144,144,PixelFormats.Pbgra32);
+        bitmap.Render(visual);var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bitmap));
         using var output=File.Create(Path.Combine(directory,name+".png"));encoder.Save(output);
     }
 }
