@@ -50,7 +50,13 @@ internal static class ScreenshotGallery
         using(var drawing=visual.RenderOpen())
         {
             drawing.DrawRectangle(window.Background,null,new Rect(0,0,width,height));
-            drawing.DrawRectangle(new VisualBrush(content){ViewboxUnits=BrushMappingMode.Absolute,Viewbox=new Rect(0,0,content.ActualWidth,content.ActualHeight)},null,new Rect(content.Margin.Left,content.Margin.Top,content.ActualWidth,content.ActualHeight));
+            var brush=new VisualBrush(content);
+            if(content.Margin==new Thickness(0))
+            {
+                brush.ViewboxUnits=BrushMappingMode.Absolute;
+                brush.Viewbox=new Rect(0,0,content.ActualWidth,content.ActualHeight);
+            }
+            drawing.DrawRectangle(brush,null,new Rect(content.Margin.Left,content.Margin.Top,content.ActualWidth,content.ActualHeight));
         }
         var bitmap=new RenderTargetBitmap((int)Math.Ceiling(width*1.5),(int)Math.Ceiling(height*1.5),144,144,PixelFormats.Pbgra32);
         bitmap.Render(visual);var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bitmap));
