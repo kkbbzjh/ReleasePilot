@@ -49,6 +49,11 @@ internal static class Program
         var db=new Database(folder);db.Save(subscription);
         var main=new MainWindow(db);main.Show();await Pump();
         ((DataGrid)main.FindName("SubscriptionsGrid")).SelectedIndex=0;await Pump();Capture(main,"subscriptions");
+        using(var host=new BackgroundHost(main))
+        {
+            Check(!host.Enabled,"tray controller starts with background monitoring disabled");
+            host.Show();Check(main.IsVisible,"tray controller restores the main window");
+        }
         var settings=new BackgroundWindow(new BackgroundSettings()){Owner=main};settings.Show();await Pump();
         Check(((CheckBox)settings.FindName("EnabledOption")).IsChecked==false,"background monitoring defaults to opt in");
         Check(((TextBox)settings.FindName("IntervalInput")).Text=="60","background interval defaults to one hour");
