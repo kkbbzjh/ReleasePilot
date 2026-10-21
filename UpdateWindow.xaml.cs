@@ -70,7 +70,8 @@ public partial class UpdateWindow : Window
     }
     private void Asset_Changed(object sender,SelectionChangedEventArgs e)
     {
-        if(ArchitectureOverride is not null){ArchitectureOverride.IsChecked=false;ArchitectureOverride.Visibility=Visibility.Collapsed;}
+        if(ArchitectureOverride is null){UpdateApplyState();return;}
+        ArchitectureOverride.IsChecked=false;ArchitectureOverride.Visibility=Visibility.Collapsed;
         if(AssetList.SelectedItem is not AssetOption option || KindList is null){UpdateApplyState();return;}
         ArchitectureOverride.Visibility=option.Match==AssetMatch.OtherArchitecture?Visibility.Visible:Visibility.Collapsed;
         var asset=option.Asset;var ext=Path.GetExtension(asset.Name).ToLowerInvariant();
