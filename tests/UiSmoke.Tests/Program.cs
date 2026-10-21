@@ -18,7 +18,6 @@ internal static class Program
     }
     private static int RunApplication()
     {
-        Application.ResourceAssembly=typeof(App).Assembly;
         RenderOptions.ProcessRenderMode=System.Windows.Interop.RenderMode.SoftwareOnly;
         var application=new Application {ShutdownMode=ShutdownMode.OnExplicitShutdown};
         var exit=1;

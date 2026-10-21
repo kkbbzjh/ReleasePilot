@@ -6,7 +6,7 @@
             <TextBlock Text="软件订阅 / 安装与更新" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,0,0,10"/>
             <TextBlock Text="安装与更新" FontSize="25" FontWeight="SemiBold"/>
             <TextBlock x:Name="ReleaseLabel" Margin="0,7,60,0" Foreground="{StaticResource SecondaryInkBrush}" TextWrapping="Wrap"/>
-        </StackPanel><Image Source="/Assets/logo.png" Width="44" Height="44" HorizontalAlignment="Right" VerticalAlignment="Center"/></Grid>
+        </StackPanel><Image Source="/ReleasePilot;component/Assets/logo.png" Width="44" Height="44" HorizontalAlignment="Right" VerticalAlignment="Center"/></Grid>
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="OptionsPanel" Margin="0,0,8,0">
             <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,14"><StackPanel>
                 <TextBlock Text="01  选择发布附件" FontSize="15" FontWeight="SemiBold"/>

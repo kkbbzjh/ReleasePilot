@@ -30,7 +30,7 @@
         <Setter Property="Background" Value="{StaticResource CanvasBrush}"/><Setter Property="Foreground" Value="{StaticResource InkBrush}"/>
         <Setter Property="FontFamily" Value="Segoe UI, Microsoft YaHei UI"/><Setter Property="FontSize" Value="13"/>
         <Setter Property="UseLayoutRounding" Value="True"/><Setter Property="TextOptions.TextFormattingMode" Value="Display"/>
-        <Setter Property="Icon" Value="/Assets/ReleasePilot.ico"/>
+        <Setter Property="Icon" Value="/ReleasePilot;component/Assets/ReleasePilot.ico"/>
     </Style>
     <Style TargetType="Button">
         <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/><Setter Property="Foreground" Value="{StaticResource SecondaryInkBrush}"/>
