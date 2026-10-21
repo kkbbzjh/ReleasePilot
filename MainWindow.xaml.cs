@@ -45,7 +45,7 @@ public partial class MainWindow : Window
         {
             StatusText.Text=$"正在检查 {s.Repo} ...";
             var release=await _github.GetLatestAsync(s.Repo);
-            s.LocalVersion=VersionHelper.ReadExeVersion(s.ExePath);
+            s.LocalVersion=s.UpdateKind=="archive"?s.ConfirmedTag:VersionHelper.ReadExeVersion(s.ExePath);
             if(release is null){s.Status="无正式 Release";s.LatestVersion="";s.ReleaseNotes="";s.ReleaseUrl="";}
             else{s.LatestVersion=release.Tag;s.ReleaseNotes=release.Notes;s.ReleaseUrl=release.Url;s.Status=await Task.Run(()=>InstallationConfirmation.GetStatus(s));}
             s.CheckedAt=DateTime.Now.ToString("yyyy-MM-dd HH:mm");_db.Save(s);
@@ -124,7 +124,7 @@ public partial class MainWindow : Window
         try
         {
             InstallationConfirmation.Clear(s);
-            s.LocalVersion=VersionHelper.ReadExeVersion(s.ExePath);
+            s.LocalVersion=s.UpdateKind=="archive"?s.ConfirmedTag:VersionHelper.ReadExeVersion(s.ExePath);
             s.Status=string.IsNullOrWhiteSpace(s.LatestVersion)?"尚未检查":InstallationConfirmation.GetStatus(s);
             _db.Save(s);Reload();
         }
@@ -138,6 +138,6 @@ public partial class MainWindow : Window
     }
     private void Grid_SelectionChanged(object sender,SelectionChangedEventArgs e)
     {
-        NotesBox.Text=Selected is {} s?$"仓库：{s.Repo}\n本地 EXE：{(string.IsNullOrEmpty(s.ExePath)?"未关联 · 点击「关联 EXE」选择软件主程序":s.ExePath)}\n解压目录：{s.UpdateTarget}\n文件版本：{s.LocalVersion} · 最新 Release：{s.LatestVersion}\n已确认的安装版本：{(string.IsNullOrEmpty(s.ConfirmedTag)?"无":s.ConfirmedTag)}\n\n{(string.IsNullOrWhiteSpace(s.ReleaseNotes)?"暂无发布说明，可点击「查看 Release」前往仓库查看。":s.ReleaseNotes)}":"还没有选择订阅。添加仓库后，在列表中选择软件即可查看详情。";
+        NotesBox.Text=Selected is {} s?$"仓库：{s.Repo}\n本地 EXE：{(string.IsNullOrEmpty(s.ExePath)?"未关联 · 点击「关联 EXE」选择软件主程序":s.ExePath)}\n解压目录：{s.UpdateTarget}\n本地版本：{s.LocalVersion} · 最新 Release：{s.LatestVersion}\n已确认的安装版本：{(string.IsNullOrEmpty(s.ConfirmedTag)?"无":s.ConfirmedTag)}\n\n{(string.IsNullOrWhiteSpace(s.ReleaseNotes)?"暂无发布说明，可点击「查看 Release」前往仓库查看。":s.ReleaseNotes)}":"还没有选择订阅。添加仓库后，在列表中选择软件即可查看详情。";
     }
 }

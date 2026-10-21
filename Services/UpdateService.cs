@@ -22,7 +22,7 @@ public static class UpdateService
         if(extension is not (".exe" or ".msi" or ".zip" or ".7z"))throw new IOException("当前支持 EXE、MSI、ZIP 和 7z 附件。");
         var path=Path.Combine(workspace,"download"+extension);
         using var request=new HttpRequestMessage(HttpMethod.Get,uri);
-        request.Headers.UserAgent.ParseAdd("ReleasePilot/0.2.2");
+        request.Headers.UserAgent.ParseAdd("ReleasePilot/0.2.3");
         using var response=await Downloads.SendAsync(request,HttpCompletionOption.ResponseHeadersRead,token);
         response.EnsureSuccessStatusCode();
         await using(var source=await response.Content.ReadAsStreamAsync(token))
@@ -192,14 +192,14 @@ public static class UpdateService
         return new ProcessStartInfo(Path.GetFullPath(path)) {UseShellExecute=true,WorkingDirectory=Path.GetDirectoryName(Path.GetFullPath(path))!};
     }
     public static bool IsSelf(string path)=>Path.GetFullPath(path).Equals(Environment.ProcessPath,StringComparison.OrdinalIgnoreCase);
-    public sealed record SelfUpdatePlan(int ParentId,string Source,string Target,string Backup,string Digest);
-    public static void StartSelfReplacement(string source,string target,string workspace)
+    public sealed record SelfUpdatePlan(int ParentId,string Source,string Target,string Backup,string Digest,string Repo,ReleaseInfo Release);
+    public static void StartSelfReplacement(string source,string target,string workspace,string repo,ReleaseInfo release)
     {
         RejectLinks(target);
         if(!OperatingSystem.IsWindows() || !string.Equals(Path.GetExtension(Environment.ProcessPath),".exe",StringComparison.OrdinalIgnoreCase))
             throw new IOException("自更新需要运行发布的 Windows 单文件版本。");
         using var file=File.OpenRead(source);
-        var plan=new SelfUpdatePlan(Environment.ProcessId,source,Path.GetFullPath(target),Path.Combine(workspace,"backup"),Convert.ToHexString(SHA256.HashData(file)));
+        var plan=new SelfUpdatePlan(Environment.ProcessId,source,Path.GetFullPath(target),Path.Combine(workspace,"backup"),Convert.ToHexString(SHA256.HashData(file)),repo,release);
         var planPath=Path.Combine(workspace,"plan.json");
         File.WriteAllText(planPath,System.Text.Json.JsonSerializer.Serialize(plan));
         var helper=Path.Combine(workspace,"ReleasePilot.UpdateHelper.exe");
@@ -224,6 +224,19 @@ public static class UpdateService
             if(digest!=plan.Digest)throw new IOException("自更新附件 SHA256 不匹配。");
         }
         ReplaceFile(plan.Source,plan.Target,plan.Backup);
+        RecordReplacement(new Database(),plan.Repo,plan.Target,plan.Release);
         _=Process.Start(new ProcessStartInfo(plan.Target) {UseShellExecute=true})??throw new IOException("更新完成，但无法自动重启，请手动启动软件。");
+    }
+    public static void RecordReplacement(Database database,string repo,string target,ReleaseInfo release)
+    {
+        var subscription=database.GetAll().FirstOrDefault(s=>s.Repo.Equals(repo,StringComparison.OrdinalIgnoreCase));
+        if(subscription is not null)
+        {
+            subscription.ExePath=target;subscription.UpdateKind="replace";subscription.UpdateTarget=target;
+            subscription.LatestVersion=release.Tag;subscription.ReleaseUrl=release.Url;subscription.ReleaseNotes=release.Notes;
+            subscription.LocalVersion=VersionHelper.ReadExeVersion(target);
+            InstallationConfirmation.Confirm(subscription);subscription.Status=InstallationConfirmation.GetStatus(subscription);
+            database.Save(subscription);
+        }
     }
 }

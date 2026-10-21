@@ -12,7 +12,7 @@ public static class InstallationConfirmation
         if(subscription.UpdateKind=="archive")
         {
             if(!Directory.Exists(subscription.UpdateTarget))throw new IOException("请先关联存在的解压目录。");
-            subscription.ConfirmedTag=subscription.LatestVersion;subscription.ConfirmedSha256="";return;
+            subscription.ConfirmedTag=subscription.LatestVersion;subscription.LocalVersion=subscription.LatestVersion;subscription.ConfirmedSha256="";return;
         }
         // Bind the user's decision to the actual bytes, not just a path or version string.
         var hash=Fingerprint(subscription.ExePath);
@@ -23,6 +23,7 @@ public static class InstallationConfirmation
     public static void Clear(Subscription subscription)
     {
         subscription.ConfirmedTag="";subscription.ConfirmedSha256="";
+        if(subscription.UpdateKind=="archive")subscription.LocalVersion="";
     }
 
     public static string GetStatus(Subscription subscription)

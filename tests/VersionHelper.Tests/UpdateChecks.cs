@@ -52,7 +52,7 @@ static class UpdateChecks
             Assert(File.ReadAllText(Path.Combine(rollback,"a.txt"))=="original","partial update rolled back");
             var subscription=new Subscription {UpdateKind="archive",UpdateTarget=target,LatestVersion="config-2026.10"};
             InstallationConfirmation.Confirm(subscription);
-            Assert(InstallationConfirmation.GetStatus(subscription)=="已是最新（已确认）","archive records installed release without EXE metadata");
+            Assert(subscription.LocalVersion==subscription.LatestVersion && InstallationConfirmation.GetStatus(subscription)=="已是最新（已确认）","archive records installed release without EXE metadata");
             subscription.LatestVersion="config-2026.11";
             Assert(InstallationConfirmation.GetStatus(subscription)=="发现新发布","archive detects new nonnumeric release");
             InstallationConfirmation.Clear(subscription);

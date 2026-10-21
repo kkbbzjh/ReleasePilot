@@ -123,7 +123,7 @@ public partial class UpdateWindow : Window
             }
             else if(UpdateService.IsSelf(target))
             {
-                UpdateService.StartSelfReplacement(downloaded,target,workspace);
+                UpdateService.StartSelfReplacement(downloaded,target,workspace,_subscription.Repo,_release);
                 Restarting=true;Application.Current.Shutdown();return;
             }
             else

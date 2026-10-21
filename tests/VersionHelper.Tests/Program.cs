@@ -69,9 +69,14 @@ try
     subscription.LatestVersion="";rejected=false;
     try{InstallationConfirmation.Confirm(subscription);}catch(InvalidOperationException){rejected=true;}
     Check(rejected,"missing release cannot be confirmed");
+    File.WriteAllText(subscription.ExePath,"updated self EXE bytes");
+    db.Save(subscription);
+    UpdateService.RecordReplacement(db,subscription.Repo,subscription.ExePath,new ReleaseInfo("v0.2.3","https://github.com/owner/app/releases/tag/v0.2.3","new notes",Array.Empty<ReleaseAsset>()));
+    var updated=db.GetAll().Single();
+    Check(updated.ConfirmedTag=="v0.2.3" && updated.ReleaseNotes=="new notes" && InstallationConfirmation.GetStatus(updated)=="已是最新（已确认）","self replacement refreshes the persisted installation receipt");
     db.Save(subscription);db.Delete(subscription.Repo);
     Check(db.GetAll().Count==0,"delete after migration");
-    Console.WriteLine("PASS 12 confirmation, SQLite migration and persistence checks");
+    Console.WriteLine("PASS 13 confirmation, SQLite migration and persistence checks");
 }
 finally
 {
