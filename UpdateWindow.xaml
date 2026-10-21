@@ -1,5 +1,5 @@
 <Window x:Class="ReleasePilot.UpdateWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="更新软件" Width="700" Height="650" MinWidth="620" MinHeight="620" WindowStartupLocation="CenterOwner" Background="#F4F6FA" FontFamily="Segoe UI, Microsoft YaHei UI" FontSize="13">
+        Title="更新软件" Icon="/Assets/ReleasePilot.ico" Width="700" Height="690" MinWidth="620" MinHeight="650" WindowStartupLocation="CenterOwner" Background="#F4F6FA" FontFamily="Segoe UI, Microsoft YaHei UI" FontSize="13">
     <Grid Margin="24">
         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
         <StackPanel Margin="0,0,0,18"><TextBlock Text="安装与更新" FontSize="24" FontWeight="SemiBold" Foreground="#202B40"/><TextBlock x:Name="ReleaseLabel" Margin="0,8,0,0" Foreground="#627089" TextWrapping="Wrap"/></StackPanel>
@@ -19,6 +19,8 @@
         </StackPanel></ScrollViewer>
         <StackPanel Grid.Row="2" VerticalAlignment="Bottom" Margin="0,18,0,14">
             <TextBlock x:Name="ProgressText" Text="下载前会再次确认。旧文件将备份，安装程序由你完成向导。" TextWrapping="Wrap" Foreground="#42516A"/>
+            <TextBlock x:Name="CurrentFileText" Margin="0,6,0,0" TextTrimming="CharacterEllipsis" Foreground="#627089" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+            <TextBlock x:Name="ProgressDetails" Margin="0,5,0,0" TextWrapping="Wrap" FontSize="12" Foreground="#768297"/>
             <ProgressBar x:Name="DownloadProgress" Height="5" Margin="0,12,0,0" Visibility="Collapsed" IsIndeterminate="True"/>
         </StackPanel>
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right"><Button x:Name="CancelButton" Content="关闭" Click="Cancel_Click" Padding="18,10" Margin="0,0,10,0"/><Button x:Name="ApplyButton" Content="下载并更新" Click="Apply_Click" Padding="18,10" Background="#4266E8" Foreground="White"/></StackPanel>

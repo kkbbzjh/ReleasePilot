@@ -17,7 +17,11 @@ static class UpdateChecks
                 foreach(var (name,text) in new[]{("package/app.exe","new app"),("package/config/mpv.conf","upstream config"),("package/new.txt","new file")})
                 {using var writer=new StreamWriter(archive.CreateEntry(name).Open());writer.Write(text);}
             }
-            var workspace=Path.Combine(root,"workspace");var stage=UpdateService.Extract(zip,workspace,CancellationToken.None);
+            var zipProgress=new RecordedProgress();
+            var workspace=Path.Combine(root,"workspace");var stage=UpdateService.Extract(zip,workspace,CancellationToken.None,zipProgress);
+            var zipDone=zipProgress.Values.Last();
+            Assert(zipDone.Complete && zipDone.CompletedFiles==3 && zipDone.TotalFiles==3 && zipDone.ExtractedBytes==Directory.GetFiles(stage,"*",SearchOption.AllDirectories).Sum(file=>new FileInfo(file).Length) && zipDone.ExtractedBytes==zipDone.TotalBytes && zipDone.Percentage==100,"ZIP progress reports actual bytes and completed files");
+            Assert(zipProgress.Values.Any(value=>value.CurrentFile.EndsWith("app.exe") && !value.Complete) && zipProgress.Values.Where(value=>!value.Complete).All(value=>value.Percentage is null or <100),"current file is reported and 100 percent is reserved for completion");
             var target=Path.Combine(root,"target");Directory.CreateDirectory(Path.Combine(target,"config"));
             File.WriteAllText(Path.Combine(target,"app.exe"),"old app");File.WriteAllText(Path.Combine(target,"config/mpv.conf"),"my settings");File.WriteAllText(Path.Combine(target,"unrelated.txt"),"keep me");
             var backup=Path.Combine(root,"backup");
@@ -26,11 +30,19 @@ static class UpdateChecks
             Assert(File.ReadAllText(Path.Combine(target,"config/mpv.conf"))=="my settings","custom config preserved");
             Assert(File.ReadAllText(Path.Combine(target,"unrelated.txt"))=="keep me","unrelated file retained");
             Assert(File.ReadAllText(Path.Combine(backup,"app.exe"))=="old app","old version backed up");
-            var seven=UpdateService.Extract(Path.Combine(AppContext.BaseDirectory,"Fixtures/tiny.7z"),Path.Combine(root,"seven"),CancellationToken.None);
+            var sevenProgress=new RecordedProgress();
+            var seven=UpdateService.Extract(Path.Combine(AppContext.BaseDirectory,"Fixtures/tiny.7z"),Path.Combine(root,"seven"),CancellationToken.None,sevenProgress);
             Assert(File.ReadAllText(Path.Combine(seven,"portable/hello.txt"))=="hello from 7z\n","real 7z payload extracted");
+            Assert(sevenProgress.Values.Last() is {Complete:true,CompletedFiles:1,TotalFiles:1,ExtractedBytes:14,TotalBytes:14},"7z progress excludes directory entries and reports decompressed bytes");
+            var empty=Path.Combine(root,"empty-file.zip");
+            using(var archive=ZipFile.Open(empty,ZipArchiveMode.Create))archive.CreateEntry("empty.txt");
+            var emptyProgress=new RecordedProgress();UpdateService.Extract(empty,Path.Combine(root,"empty"),CancellationToken.None,emptyProgress);
+            Assert(emptyProgress.Values.Last() is {Complete:true,CompletedFiles:1,ExtractedBytes:0,Percentage:100},"zero-byte file extraction completes without dividing by zero");
             var traversal=Path.Combine(root,"traversal.zip");
             using(var archive=ZipFile.Open(traversal,ZipArchiveMode.Create)){using var writer=new StreamWriter(archive.CreateEntry("../escaped.txt").Open());writer.Write("bad");}
-            Reject(()=>UpdateService.Extract(traversal,Path.Combine(root,"evil"),CancellationToken.None),"archive traversal must fail");
+            var failedProgress=new RecordedProgress();
+            Reject(()=>UpdateService.Extract(traversal,Path.Combine(root,"evil"),CancellationToken.None,failedProgress),"archive traversal must fail");
+            Assert(!failedProgress.Values.Any(value=>value.Complete),"failed extraction cannot report completion");
             Assert(!File.Exists(Path.Combine(root,"evil/escaped.txt")),"archive cannot escape staging");
             foreach(var value in new[]{"../outside","C:/Windows/file","/absolute","config/../../bad","CON.txt","ok/file:stream","bad./name"})
                 Reject(()=>UpdateService.SafeRelative(value),"unsafe archive/preserve path accepted");
@@ -71,5 +83,10 @@ static class UpdateChecks
             Console.WriteLine($"PASS {checks} archive, installer, replacement, backup and rollback checks");
         }
         finally{Directory.Delete(root,true);}
+    }
+    private sealed class RecordedProgress : IProgress<ExtractionProgress>
+    {
+        public List<ExtractionProgress> Values {get;}=[];
+        public void Report(ExtractionProgress value)=>Values.Add(value);
     }
 }

@@ -7,6 +7,11 @@ using SharpCompress.Common;
 
 namespace ReleasePilot.Services;
 
+public sealed record ExtractionProgress(string CurrentFile,int CompletedFiles,int TotalFiles,long ExtractedBytes,long TotalBytes,bool Complete=false)
+{
+    public double? Percentage=>Complete?100:TotalBytes>0?Math.Min(99.9,100d*ExtractedBytes/TotalBytes):null;
+}
+
 public static class UpdateService
 {
     private static readonly HttpClient Downloads=new(new HttpClientHandler {UseProxy=true,Proxy=HttpClient.DefaultProxy}) {Timeout=Timeout.InfiniteTimeSpan};
@@ -85,12 +90,27 @@ public static class UpdateService
         for(var current=Path.GetFullPath(path);!string.IsNullOrEmpty(current);current=Path.GetDirectoryName(current))
             if((File.Exists(current)||Directory.Exists(current)) && (File.GetAttributes(current)&FileAttributes.ReparsePoint)!=0)throw new IOException("目标路径包含链接或重解析点，请选择真实目录。");
     }
-    public static string Extract(string archivePath,string workspace,CancellationToken token)
+    public static string Extract(string archivePath,string workspace,CancellationToken token,IProgress<ExtractionProgress>? progress=null)
     {
+        token.ThrowIfCancellationRequested();
+        progress?.Report(new ExtractionProgress("",0,0,0,0));
         var stage=Path.Combine(workspace,"stage");Directory.CreateDirectory(stage);
         using var archive=ArchiveFactory.Open(archivePath);
         var names=new HashSet<string>(StringComparer.OrdinalIgnoreCase);long size=0;var count=0;
         if(archive.Type is not (ArchiveType.Zip or ArchiveType.SevenZip))throw new IOException("附件内容必须是 ZIP 或 7z 压缩包。");
+        var entries=archive.Entries.Take(100001).ToArray();
+        if(entries.Length>100000)throw new IOException("压缩包文件数量过多。");
+        var totalFiles=entries.Count(entry=>!entry.IsDirectory);
+        var totalBytes=entries.Where(entry=>!entry.IsDirectory).Sum(entry=>Math.Max(0,entry.Size));
+        if(totalBytes>8L*1024*1024*1024)throw new IOException("解压内容超过 8 GB 限制。");
+        var completed=0;var currentFile="";var clock=Stopwatch.StartNew();long lastReport=-200;
+        void Report(bool force=false,bool complete=false)
+        {
+            if(!force && clock.ElapsedMilliseconds-lastReport<150)return;
+            lastReport=clock.ElapsedMilliseconds;
+            progress?.Report(new ExtractionProgress(currentFile,completed,totalFiles,size,totalBytes,complete));
+        }
+        Report(true);
         void ExtractEntry(IEntry entry,Func<Stream> open)
         {
             token.ThrowIfCancellationRequested();
@@ -101,6 +121,7 @@ public static class UpdateService
             var destination=Path.Combine(stage,relative);
             if(entry.IsDirectory){Directory.CreateDirectory(destination);return;}
             if(!names.Add(relative))throw new IOException("压缩包存在重复文件路径。");
+            currentFile=relative;Report(completed==0);
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             using var source=open();using var output=new FileStream(destination,FileMode.CreateNew);
             var buffer=new byte[131072];int read;
@@ -109,15 +130,18 @@ public static class UpdateService
                 token.ThrowIfCancellationRequested();size+=read;
                 if(size>8L*1024*1024*1024)throw new IOException("解压内容超过 8 GB 限制。");
                 output.Write(buffer,0,read);
+                Report();
             }
+            completed++;Report();
         }
         if(archive.Type==ArchiveType.SevenZip)
         {
             using var reader=archive.ExtractAllEntries();
             while(reader.MoveToNextEntry())ExtractEntry(reader.Entry,()=>reader.OpenEntryStream());
         }
-        else foreach(var entry in archive.Entries)ExtractEntry(entry,entry.OpenEntryStream);
+        else foreach(var entry in entries)ExtractEntry(entry,entry.OpenEntryStream);
         if(names.Count==0)throw new IOException("压缩包中没有可更新的文件。");
+        Report(true,true);
         return stage;
     }
     public static int ApplyDirectory(string stage,string target,string backup,string preserve,bool unwrap)

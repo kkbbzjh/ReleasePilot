@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using ReleasePilot.Models;
 using ReleasePilot.Services;
@@ -97,8 +98,32 @@ public partial class UpdateWindow : Window
             string? stage=null;
             if(kind=="archive")
             {
-                ProgressText.Text="正在解压到临时目录…";CancelButton.Content="取消解压";
-                stage=await Task.Run(()=>UpdateService.Extract(downloaded,workspace,cancellation.Token));
+                CancelButton.Content="取消解压";
+                ExtractionProgress? snapshot=null;
+                var elapsed=Stopwatch.StartNew();var lastChange=TimeSpan.Zero;
+                var extraction=new Progress<ExtractionProgress>(value=>{snapshot=value;lastChange=elapsed.Elapsed;});
+                void RenderExtraction()
+                {
+                    var percent=snapshot?.Percentage;
+                    DownloadProgress.IsIndeterminate=percent is null;
+                    if(percent is not null)DownloadProgress.Value=percent.Value;
+                    ProgressText.Text=percent is null?"正在准备解压…":$"正在解压到临时目录 · {percent:F1}%";
+                    CurrentFileText.Text=string.IsNullOrEmpty(snapshot?.CurrentFile)?"正在读取压缩包目录和准备解压器…":$"当前文件：{snapshot.CurrentFile}";
+                    var duration=$"{(int)elapsed.Elapsed.TotalMinutes:D2}:{elapsed.Elapsed.Seconds:D2}";
+                    ProgressDetails.Text=snapshot is {TotalFiles:>0}
+                        ?$"已完成 {snapshot.CompletedFiles:N0} / {snapshot.TotalFiles:N0} 个文件 · {snapshot.ExtractedBytes/1048576d:F1} / {snapshot.TotalBytes/1048576d:F1} MB · 已用时 {duration}"
+                        :$"已用时 {duration} · 正在准备，请稍候";
+                    ProgressDetails.Text+=elapsed.Elapsed-lastChange>TimeSpan.FromSeconds(10)
+                        ?"\n暂未收到新的解压数据。7z 大文件可能较慢，可继续等待或取消。"
+                        :"\n7z 固实压缩包可能需要较长时间，解压期间可取消。";
+                    if(cancellation.IsCancellationRequested)ProgressText.Text="正在取消解压，等待当前读取结束…";
+                }
+                var timer=new DispatcherTimer {Interval=TimeSpan.FromMilliseconds(500)};
+                EventHandler tick=(_,_)=>RenderExtraction();timer.Tick+=tick;
+                RenderExtraction();timer.Start();
+                try{stage=await Task.Run(()=>UpdateService.Extract(downloaded,workspace,cancellation.Token,extraction));}
+                finally{timer.Stop();timer.Tick-=tick;}
+                DownloadProgress.IsIndeterminate=true;CurrentFileText.Text="";ProgressDetails.Text="";
             }
             cancellation.Token.ThrowIfCancellationRequested();_applying=true;CancelButton.IsEnabled=false;
             if(kind=="installer")
@@ -146,9 +171,14 @@ public partial class UpdateWindow : Window
         finally
         {
             _busy=false;_applying=false;_cancellation=null;OptionsPanel.IsEnabled=true;CancelButton.IsEnabled=true;CancelButton.Content="关闭";DownloadProgress.Visibility=Visibility.Collapsed;
+            CurrentFileText.Text="";ProgressDetails.Text="";DownloadProgress.IsIndeterminate=true;
         }
     }
-    private void Cancel_Click(object sender,RoutedEventArgs e){if(_busy)_cancellation?.Cancel();else Close();}
+    private void Cancel_Click(object sender,RoutedEventArgs e)
+    {
+        if(_busy){_cancellation?.Cancel();CancelButton.Content="正在取消…";CancelButton.IsEnabled=false;}
+        else Close();
+    }
     private void OnClosing(object? sender,CancelEventArgs e)
     {
         if(!_busy || Restarting)return;

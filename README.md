@@ -1,14 +1,23 @@
+<p align="center"><img src="Assets/logo.png" width="100" alt="ReleasePilot LOGO" /></p>
+
 # ReleasePilot
 
 Windows 桌面 GitHub 软件更新管理器。
 
-## V0.1
+## 当前功能 · v0.2.4
 
 - 添加 GitHub 仓库订阅
 - 关联本地 EXE 并读取文件版本
 - 获取最新正式版 Release 和更新日志
 - 将订阅保存在本机 SQLite 中
 - 在 GitHub Actions 上构建 Windows x64 单文件程序
+- 下载并启动 EXE / MSI 安装向导
+- ZIP / 7z 解压更新、配置保留、备份与失败回滚
+- 单文件 EXE 替换与 ReleasePilot 自更新
+- 手动确认版本对应关系，按已安装的 Release 追踪配置包
+- 解压时显示文件名、文件数量、解压大小、进度与耗时
+
+下载最新版本：[Releases](https://github.com/kkbbzjh/ReleasePilot/releases/latest)。Windows x64，单文件版无需另装 .NET。
 
 ## 开发
 
@@ -30,12 +39,16 @@ Windows + .NET 10 SDK：`dotnet restore`、`dotnet run`。
 
 下载与旧文件备份保留在 `%LOCALAPPDATA%/ReleasePilot/Updates/`。附件提供 GitHub SHA256 摘要时会核验，大小或摘要不匹配时停止更新。旧订阅数据库会自动增加所需字段，保留原有订阅。
 
+### 解压时间较长时
+
+更新窗口会显示当前文件、已完成文件数、已解压 MB、字节进度和累计耗时。读取压缩包目录或准备解压器时先显示等待动画；已知解压总大小后显示实际字节进度。7z 固实压缩包可能在同一文件或准备阶段停留较久，耗时仍会刷新；一段时间没有新的解压数据时会提示可继续等待或取消，不会仅因耗时较长就判定失败。点击“取消解压”后需等待当前读取结束，此阶段尚未覆盖目标目录。
+
 ## 自动构建
 
 推送 `v*` 标签后执行 `.github/workflows/release.yml`，并发布带版本号的 EXE（如 `ReleasePilot-v0.2.0.exe`）和 `SHA256SUMS.txt`，校验文件使用相同的 EXE 文件名。标签构建使用标签版本，`main` 分支和手动构建使用项目文件中的 `Version`。也可在 Actions 手动运行工作流，只生成可下载构建附件。
 
 ## 后续规划
 
-V0.2 支持自动使用 Windows 系统代理；V0.3 增加后台监控和通知。
+后台监控和更新通知。
 
 > 部分软件的 EXE 文件版本与 GitHub 标签不同，无法安全比较时会显示“需要确认”。
