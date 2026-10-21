@@ -63,10 +63,10 @@ internal static class Program
             try
             {
                 Directory.CreateDirectory(staging);
-                var broken=Path.Combine(staging,"invalid.ps1");var report=Path.Combine(staging,"failure.json");var log=Path.Combine(staging,"failure.log");
+                var broken=Path.Combine(staging,"invalid.ps1");var report=Path.Combine(staging,"failure.json");var bootstrapLog=Path.Combine(staging,"failure.log");
                 File.WriteAllText(broken,"throw 'injected installer failure'",new System.Text.UTF8Encoding(true));
                 var start=new System.Diagnostics.ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),@"WindowsPowerShell\v1.0\powershell.exe")){UseShellExecute=false,CreateNoWindow=true};
-                foreach(var arg in new[]{"-NoProfile","-NonInteractive","-EncodedCommand",ServiceInstallProtocol.Encode(ServiceInstallProtocol.Bootstrap(broken,"Install",WindowsMonitorManager.UserSid,"unused",report,log))})start.ArgumentList.Add(arg);
+                foreach(var arg in new[]{"-NoProfile","-NonInteractive","-EncodedCommand",ServiceInstallProtocol.Encode(ServiceInstallProtocol.Bootstrap(broken,"Install",WindowsMonitorManager.UserSid,"unused",report,bootstrapLog))})start.ArgumentList.Add(arg);
                 using(var child=System.Diagnostics.Process.Start(start)!)
                 {
                     await child.WaitForExitAsync();
