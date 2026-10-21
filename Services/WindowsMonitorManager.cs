@@ -107,7 +107,7 @@ public static class WindowsMonitorManager
     private static async Task RunPowerShellAsync(string script)
     {
         var start=new ProcessStartInfo(PowerShellPath){UseShellExecute=false,CreateNoWindow=true,RedirectStandardError=true};
-        start.ArgumentList.Add("-NoProfile");start.ArgumentList.Add("-NonInteractive");start.ArgumentList.Add("-EncodedCommand");start.ArgumentList.Add(Convert.ToBase64String(Encoding.Unicode.GetBytes("$ErrorActionPreference='Stop';"+script)));
+        start.ArgumentList.Add("-NoProfile");start.ArgumentList.Add("-NonInteractive");start.ArgumentList.Add("-EncodedCommand");start.ArgumentList.Add(Convert.ToBase64String(Encoding.Unicode.GetBytes(ServiceInstallProtocol.PowerShellPrelude+"$ErrorActionPreference='Stop';"+script)));
         using var process=Process.Start(start)??throw new IOException("无法运行 Windows 服务管理命令。");
         var error=process.StandardError.ReadToEndAsync();await process.WaitForExitAsync();
         if(process.ExitCode!=0)throw new IOException("通知任务设置失败："+await error);

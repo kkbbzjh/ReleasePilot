@@ -73,3 +73,5 @@ Windows + .NET 10 SDK：`dotnet restore`、`dotnet run`。
 > 部分软件的 EXE 文件版本与 GitHub 标签不同，无法安全比较时会显示“需要确认”。
 
 安装失败时，设置页会显示失败阶段、Windows 错误码和安装日志位置。可点击“复制错误详情”发送完整报告，或“打开安装日志”查看 `%LOCALAPPDATA%/ReleasePilot/Logs/`。管理员账户若已提升权限或关闭 UAC，安装时可能不会再次弹出授权窗口。安装与修复会等待旧服务进程退出后再替换文件。
+
+Windows PowerShell 安装子进程仅使用系统内置模块，避免继承 PowerShell 7 的模块路径导致 `Set-Acl` 等命令加载失败。不会修改系统或用户的永久环境变量。

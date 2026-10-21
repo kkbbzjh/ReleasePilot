@@ -1,4 +1,6 @@
 param([Parameter(Mandatory=$true)][string]$UserSid,[string]$WorkerPath,[switch]$Remove)
+# A .NET GUI launched from PowerShell 7 may inherit incompatible Core module paths.
+if($PSVersionTable.PSEdition -eq 'Desktop'){$env:PSModulePath=[IO.Path]::Combine($PSHOME,'Modules')}
 $ErrorActionPreference='Stop'
 if([Security.Principal.WindowsIdentity]::GetCurrent().User.Value -ne $UserSid){throw 'Notification task must belong to the current user'}
 $taskName='ReleasePilot Notifications-'+$UserSid

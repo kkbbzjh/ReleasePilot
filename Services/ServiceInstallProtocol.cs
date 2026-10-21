@@ -12,11 +12,12 @@ public sealed class ServiceInstallResult
 }
 public static class ServiceInstallProtocol
 {
+    public const string PowerShellPrelude="$env:PSModulePath=[IO.Path]::Combine($PSHOME,'Modules');";
     public static string Quote(string value)=>"'"+value.Replace("'","''")+"'";
     public static string Bootstrap(string script,string operation,string sid,string worker,string report,string log)
     {
         if(operation is not ("Install" or "Uninstall"))throw new ArgumentException("Invalid service operation.",nameof(operation));
-        return "$ErrorActionPreference='Stop';try{& "+Quote(script)+" -Operation "+Quote(operation)+" -UserSid "+Quote(sid)+" -SourceWorker "+Quote(worker)+" -ReportPath "+Quote(report)+" -LogPath "+Quote(log)+";exit $LASTEXITCODE}catch{$failure=$_;$result=@{Success=$false;Step='LaunchScript';Error=$failure.Exception.Message;Details=($failure|Out-String);NativeErrorCode=0;HResult=('{0:X8}' -f $failure.Exception.HResult)};try{[IO.File]::WriteAllText("+Quote(report)+",($result|ConvertTo-Json -Depth 4),[Text.UTF8Encoding]::new($false));[IO.File]::AppendAllText("+Quote(log)+",($failure|Out-String),[Text.UTF8Encoding]::new($false))}catch{};exit 1}";
+        return PowerShellPrelude+"$ErrorActionPreference='Stop';try{& "+Quote(script)+" -Operation "+Quote(operation)+" -UserSid "+Quote(sid)+" -SourceWorker "+Quote(worker)+" -ReportPath "+Quote(report)+" -LogPath "+Quote(log)+";exit $LASTEXITCODE}catch{$failure=$_;$result=@{Success=$false;Step='LaunchScript';Error=$failure.Exception.Message;Details=($failure|Out-String);NativeErrorCode=0;HResult=('{0:X8}' -f $failure.Exception.HResult)};try{[IO.File]::WriteAllText("+Quote(report)+",($result|ConvertTo-Json -Depth 4),[Text.UTF8Encoding]::new($false));[IO.File]::AppendAllText("+Quote(log)+",($failure|Out-String),[Text.UTF8Encoding]::new($false))}catch{};exit 1}";
     }
     public static string Encode(string script)=>Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
     public static ServiceInstallResult? Parse(string json)

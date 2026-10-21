@@ -6,6 +6,7 @@ internal static class ServiceInstallChecks
     {
         int checks=0;void Check(bool value,string description){if(!value)throw new Exception(description);checks++;}
         var script=ServiceInstallProtocol.Bootstrap(@"C:\安装 路径\O'Brien\install.ps1","Install","S-1-5-21-1-2-3-1001",@"C:\测试\worker.exe",@"C:\测试\result.json",@"C:\测试\installer.log");
+        Check(script.StartsWith(ServiceInstallProtocol.PowerShellPrelude),"Windows PowerShell module resolution is isolated from an inherited Core module path");
         Check(script.Contains("'C:\\安装 路径\\O''Brien\\install.ps1'"),"bootstrap safely quotes non-ASCII paths with spaces and apostrophes");
         Check(Encoding.Unicode.GetString(Convert.FromBase64String(ServiceInstallProtocol.Encode(script)))==script,"PowerShell encoded command preserves Unicode without system code page dependency");
         var result=ServiceInstallProtocol.Parse("{\"Success\":false,\"Step\":\"StartService\",\"Error\":\"无法启动服务\",\"NativeErrorCode\":1053,\"HResult\":\"80004005\"}");

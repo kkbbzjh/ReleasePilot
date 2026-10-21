@@ -5,6 +5,8 @@ param(
  [string]$ReportPath=(Join-Path $env:TEMP ('ReleasePilot-service-'+[Guid]::NewGuid().ToString('N')+'.json')),
  [string]$LogPath=(Join-Path $env:TEMP ('ReleasePilot-service-'+[Guid]::NewGuid().ToString('N')+'.log'))
 )
+# A .NET GUI launched from PowerShell 7 may inherit incompatible Core module paths.
+if($PSVersionTable.PSEdition -eq 'Desktop'){$env:PSModulePath=[IO.Path]::Combine($PSHOME,'Modules')}
 $ErrorActionPreference='Stop'
 $step='Validate'
 $serviceName='ReleasePilotMonitor'
