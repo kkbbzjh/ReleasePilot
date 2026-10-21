@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -7,9 +8,11 @@ public sealed record ReleaseInfo(string Tag,string Url,string Notes);
 public sealed class GitHubClient
 {
     private static readonly HttpClient Http = CreateClient();
+    // HttpClient uses the Windows system proxy through the default proxy resolver.
     private static HttpClient CreateClient()
     {
-        var client=new HttpClient { Timeout=TimeSpan.FromSeconds(25) };
+        var handler = new HttpClientHandler { UseProxy = true, Proxy = HttpClient.DefaultProxy, AllowAutoRedirect = true };
+        var client=new HttpClient(handler) { Timeout=TimeSpan.FromSeconds(25) };
         client.DefaultRequestHeaders.UserAgent.ParseAdd("ReleasePilot/0.1");
         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         return client;
