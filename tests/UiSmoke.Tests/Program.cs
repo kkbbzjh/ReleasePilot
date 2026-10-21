@@ -57,11 +57,30 @@ internal static class Program
         {
             Check(payload is not null && payload.ReadByte()=='M' && payload.ReadByte()=='Z',"desktop EXE embeds a native Windows service payload");
         }
+        if(Environment.GetEnvironmentVariable("CI")=="true")
+        {
+            var staging=Path.Combine(folder,"安装 路径 O'Brien");
+            try
+            {
+                await WindowsMonitorManager.ManageAsync("Install",staging);
+                Check(WindowsMonitorManager.Status().StartsWith("运行中"),"embedded installer starts real service through ShellExecute/runas");
+                await WindowsMonitorManager.ManageAsync("Install",staging);
+                Check(WindowsMonitorManager.Status().StartsWith("运行中"),"repair waits for old service process and restarts it");
+                Check(WindowsMonitorManager.LastOperationLog is {} log && File.ReadAllText(log).Contains("SUCCESS"),"desktop retains detailed service installation logs");
+            }
+            finally
+            {
+                await WindowsMonitorManager.ManageAsync("Uninstall",staging);
+                if(Directory.Exists(WindowsMonitorManager.ProfileDirectory))Directory.Delete(WindowsMonitorManager.ProfileDirectory,true);
+            }
+        }
         var settings=new BackgroundWindow(new BackgroundSettings()){Owner=main};settings.Show();await Pump();
         Check(((CheckBox)settings.FindName("EnabledOption")).IsChecked==false,"service monitoring is opt in until installed");
         Check(((TextBox)settings.FindName("IntervalInput")).Text=="60","background interval defaults to one hour");
         Check(FindVisual<Button>(main).Any(b=>Equals(b.Content,"打开临时目录")),"temporary directory is accessible directly from main window");
         Check(!FindVisual<Button>(settings).Any(b=>b.Content?.ToString()?.Contains("临时")==true),"service settings do not contain unrelated file actions");
+        Check(FindVisual<Button>(settings).Any(b=>Equals(b.Content,"复制错误详情")) && FindVisual<Button>(settings).Any(b=>Equals(b.Content,"打开安装日志")),"service failure details can be copied and their logs opened");
+        Check(((TextBox)settings.FindName("ErrorText")).IsReadOnly,"service error text is selectable");
         Capture(settings,"service-settings");settings.Close();
         var addButton=FindVisual<Button>(main).First(button=>Equals(button.Content,"＋ 添加订阅"));
         Check(ReferenceEquals(addButton.Style,main.FindResource("PrimaryButton")),"main primary action uses the shared theme");

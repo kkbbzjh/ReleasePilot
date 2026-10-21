@@ -97,3 +97,5 @@ if(args.Length==2)
 }
 
 await MonitorChecks.RunAsync();
+
+ServiceInstallChecks.Run();

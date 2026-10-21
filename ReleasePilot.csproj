@@ -6,10 +6,11 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ReleasePilot</AssemblyName>
-    <Version>0.3.2</Version>
+    <Version>0.3.3</Version>
     <ApplicationIcon>Assets/ReleasePilot.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="UiSmoke.Tests" />
     <Using Remove="System.Windows.Forms" />
     <Using Remove="System.Drawing" />
     <Compile Remove="tests/**/*.cs;Monitor/**/*.cs" />

@@ -53,5 +53,20 @@ public partial class BackgroundWindow:Window
         catch(Exception ex){ErrorText.Text="卸载未完成："+ex.Message;}
         finally{_busy=false;ActionsPanel.IsEnabled=true;RefreshStatus();}
     }
+    private void CopyError_Click(object sender,RoutedEventArgs e)
+    {
+        try
+        {
+            var details=ErrorText.Text;
+            if(WindowsMonitorManager.LastOperationLog is {} log && System.IO.File.Exists(log))details+="\n\n"+System.IO.File.ReadAllText(log);
+            Clipboard.SetText(string.IsNullOrWhiteSpace(details)?"尚无安装错误。":details);
+        }
+        catch(Exception ex){ErrorText.Text="复制失败："+ex.Message;}
+    }
+    private void OpenLogs_Click(object sender,RoutedEventArgs e)
+    {
+        try{System.IO.Directory.CreateDirectory(WindowsMonitorManager.LogsDirectory);System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(WindowsMonitorManager.LogsDirectory){UseShellExecute=true});}
+        catch(Exception ex){ErrorText.Text="打开日志失败："+ex.Message;}
+    }
     private void Cancel_Click(object sender,RoutedEventArgs e)=>Close();
 }

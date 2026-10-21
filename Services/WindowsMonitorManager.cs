@@ -12,6 +12,8 @@ public static class WindowsMonitorManager
     public static string UserSid=>WindowsIdentity.GetCurrent().User?.Value??throw new IOException("无法识别当前 Windows 用户。");
     public static string ProfileDirectory=>Path.Combine(MonitorFiles.Root,UserSid);
     public static string WorkerPath=>Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),"ReleasePilot Service","ReleasePilot.Monitor.exe");
+    public static string LogsDirectory=>Path.Combine(BackgroundSettings.DataDirectory,"Logs");
+    public static string? LastOperationLog {get;private set;}
     public static string TaskName=>"ReleasePilot Notifications-"+UserSid;
     public static string Status()
     {
@@ -111,25 +113,51 @@ public static class WindowsMonitorManager
         if(process.ExitCode!=0)throw new IOException("通知任务设置失败："+await error);
     }
     private static string PowerShellPath=>Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),@"WindowsPowerShell\v1.0\powershell.exe");
-    private static async Task ManageAsync(string operation)
+    internal static async Task ManageAsync(string operation,string? temporaryRoot=null)
     {
-        var temporary=Path.Combine(Path.GetTempPath(),"ReleasePilot-service-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(temporary);
+        var temporary=Path.Combine(temporaryRoot??Path.GetTempPath(),"ReleasePilot-service-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(temporary);
+        Directory.CreateDirectory(LogsDirectory);
+        var log=Path.Combine(LogsDirectory,$"service-{operation}-{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.log");
+        LastOperationLog=log;
+        File.WriteAllText(log,$"ReleasePilot {typeof(WindowsMonitorManager).Assembly.GetName().Version}\nOS: {Environment.OSVersion}; Architecture: {System.Runtime.InteropServices.RuntimeInformation.OSArchitecture}\n操作：{operation}\n",new UTF8Encoding(true));
+        var workerLog=Path.Combine(temporary,"installer.log");var report=Path.Combine(temporary,"result.json");
         try
         {
             var assembly=typeof(WindowsMonitorManager).Assembly;
-            async Task Extract(string resource,string filename)
+            async Task Extract(string resource,string filename,bool script=false)
             {
                 await using var source=assembly.GetManifestResourceStream(resource)??throw new IOException("此构建未包含服务程序，请使用 Releases 中的正式 EXE。");
-                await using var target=File.Create(Path.Combine(temporary,filename));await source.CopyToAsync(target);
+                if(script)
+                {
+                    using var reader=new StreamReader(source);
+                    await File.WriteAllTextAsync(Path.Combine(temporary,filename),await reader.ReadToEndAsync(),new UTF8Encoding(true));
+                }
+                else{await using var target=File.Create(Path.Combine(temporary,filename));await source.CopyToAsync(target);}
             }
-            await Extract("ReleasePilot.ManageService.ps1","ManageService.ps1");
+            await Extract("ReleasePilot.ManageService.ps1","ManageService.ps1",true);
             if(operation=="Install")await Extract("ReleasePilot.Monitor.exe","ReleasePilot.Monitor.exe");
+            var bootstrap=ServiceInstallProtocol.Bootstrap(Path.Combine(temporary,"ManageService.ps1"),operation,UserSid,Path.Combine(temporary,"ReleasePilot.Monitor.exe"),report,workerLog);
             var start=new ProcessStartInfo(PowerShellPath){UseShellExecute=true,Verb="runas",WindowStyle=ProcessWindowStyle.Hidden};
-            foreach(var arg in new[]{"-NoProfile","-ExecutionPolicy","Bypass","-File",Path.Combine(temporary,"ManageService.ps1"),"-Operation",operation,"-UserSid",UserSid,"-SourceWorker",Path.Combine(temporary,"ReleasePilot.Monitor.exe")})start.ArgumentList.Add(arg);
+            foreach(var arg in new[]{"-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-EncodedCommand",ServiceInstallProtocol.Encode(bootstrap)})start.ArgumentList.Add(arg);
             using var process=Process.Start(start)??throw new IOException("无法启动服务安装程序。");
             await process.WaitForExitAsync();
-            if(process.ExitCode!=0)throw new IOException("服务操作未完成。请检查管理员授权以及 Windows 事件查看器；现有订阅不会被删除。");
+            var result=File.Exists(report)?ServiceInstallProtocol.Parse(await File.ReadAllTextAsync(report)):null;
+            if(process.ExitCode!=0 || result?.Success!=true)
+                throw new IOException(ServiceInstallProtocol.Failure(process.ExitCode,result,log));
         }
-        finally{try{Directory.Delete(temporary,true);}catch(IOException){}catch(UnauthorizedAccessException){}}
+        catch(Exception ex)
+        {
+            await File.AppendAllTextAsync(log,"\n"+ex+"\n");throw;
+        }
+        finally
+        {
+            try
+            {
+                if(File.Exists(workerLog))await File.AppendAllTextAsync(log,"\n"+await File.ReadAllTextAsync(workerLog));
+                if(File.Exists(report))await File.AppendAllTextAsync(log,"\nRESULT: "+await File.ReadAllTextAsync(report));
+            }
+            catch(Exception ex) when(ex is IOException or UnauthorizedAccessException){}
+            try{Directory.Delete(temporary,true);}catch(IOException){}catch(UnauthorizedAccessException){}
+        }
     }
 }
