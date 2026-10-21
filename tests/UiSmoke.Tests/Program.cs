@@ -11,8 +11,8 @@ using ReleasePilot.Services;
 
 internal static class Program
 {
-    [STAThread]
     private static bool _screenshotsOnly;
+    [STAThread]
     private static int Main(string[] args)
     {
         _screenshotsOnly=args.Contains("--screenshots-only");
