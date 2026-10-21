@@ -28,8 +28,6 @@ jobs:
           }
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "exe_name=ReleasePilot-$tag.exe" >> $env:GITHUB_OUTPUT
-      - name: Restore
-        run: dotnet restore ReleasePilot.csproj -r win-x64
       - name: Test versions and update operations
         run: dotnet run --project tests/VersionHelper.Tests/VersionHelper.Tests.csproj -c Release
       - name: Test shared WPF theme and dialogs
@@ -42,6 +40,10 @@ jobs:
           name: ReleasePilot-ui-${{ steps.release_metadata.outputs.tag }}
           path: ui-screenshots/*.png
           if-no-files-found: ignore
+      # The UI test references the app and restores it without a RID. Restore the
+      # release target afterward so --no-restore publish gets win-x64 assets.
+      - name: Restore Windows release target
+        run: dotnet restore ReleasePilot.csproj -r win-x64
       - name: Publish single-file EXE
         run: dotnet publish ReleasePilot.csproj -c Release -r win-x64 --self-contained true --no-restore -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -p:DebugSymbols=false -o publish
       - name: Verify published EXE version
