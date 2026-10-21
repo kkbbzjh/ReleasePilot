@@ -108,7 +108,7 @@
                 </ToggleButton>
                 <ContentPresenter Margin="12,10,36,10" VerticalAlignment="Center" IsHitTestVisible="False" Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"/>
                 <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
-                    <Border MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" MaxHeight="{TemplateBinding MaxDropDownHeight}" Margin="0,5,0,5" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource OutlineBrush}" BorderThickness="1" CornerRadius="10" Padding="3,5">
+                    <Border Width="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" MaxHeight="{TemplateBinding MaxDropDownHeight}" Margin="0,5,0,5" Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource OutlineBrush}" BorderThickness="1" CornerRadius="10" Padding="3,5">
                         <ScrollViewer CanContentScroll="True" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/></ScrollViewer>
                     </Border>
                 </Popup>

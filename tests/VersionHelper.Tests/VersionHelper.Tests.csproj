@@ -12,6 +12,7 @@
     <Compile Include="../../Models/Subscription.cs" Link="Subscription.cs" />
     <Compile Include="../../Services/UpdateService.cs" Link="UpdateService.cs" />
     <Compile Include="../../Services/GitHubClient.cs" Link="GitHubClient.cs" />
+    <Compile Include="../../Services/AssetSelector.cs" Link="AssetSelector.cs" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.2" />
     <PackageReference Include="SharpCompress" Version="1.0.0" />
     <None Update="Fixtures/tiny.7z" CopyToOutputDirectory="PreserveNewest" />

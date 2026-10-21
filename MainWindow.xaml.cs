@@ -111,8 +111,8 @@ public partial class MainWindow : Window
                 AppDialog.Show(this,"无法获取最新 Release，请成功检查后再确认。","暂时无法确认");return;
             }
             var local=s.UpdateKind=="archive"?$"解压目录：{s.UpdateTarget}":$"本地 EXE：{s.ExePath}\n文件版本：{(string.IsNullOrWhiteSpace(s.LocalVersion)?"未读取到":s.LocalVersion)}";
-            var prompt=$"仓库：{s.Repo}\n{local}\n最新 Release：{s.LatestVersion}\n\n只有你确定本地已经是上述 Release 时，才点击「确认继续」。\n此操作仅记录版本对应关系，不会下载或安装更新。\n尚未更新时，请先点击「安装 / 更新」。";
-            if(AppDialog.Show(this,prompt,"确认已安装当前 Release",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No)!=MessageBoxResult.Yes)return;
+            var prompt=$"仓库：{s.Repo}\n{local}\n最新 Release：{s.LatestVersion}\n\n只有你确定本地已经是上述 Release 时，才点击「确认继续」。\n此操作只登记已经安装好的版本，不会下载、解压、安装或修复软件。\n尚未更新时，请先点击「安装 / 更新」。";
+            if(AppDialog.Show(this,prompt,"标记为已安装此版本",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No)!=MessageBoxResult.Yes)return;
             await Task.Run(()=>InstallationConfirmation.Confirm(s));
             s.Status=InstallationConfirmation.GetStatus(s);_db.Save(s);
         }
@@ -129,7 +129,7 @@ public partial class MainWindow : Window
             s.Status=string.IsNullOrWhiteSpace(s.LatestVersion)?"尚未检查":InstallationConfirmation.GetStatus(s);
             _db.Save(s);Reload();
         }
-        catch(Exception ex){AppDialog.Show(this,ex.Message,"取消确认失败",MessageBoxButton.OK,MessageBoxImage.Error);}
+        catch(Exception ex){AppDialog.Show(this,ex.Message,"清除安装标记失败",MessageBoxButton.OK,MessageBoxImage.Error);}
     }
     private void Delete_Click(object sender,RoutedEventArgs e)
     {
@@ -139,6 +139,6 @@ public partial class MainWindow : Window
     }
     private void Grid_SelectionChanged(object sender,SelectionChangedEventArgs e)
     {
-        NotesBox.Text=Selected is {} s?$"仓库：{s.Repo}\n本地 EXE：{(string.IsNullOrEmpty(s.ExePath)?"未关联 · 点击「关联 EXE」选择软件主程序":s.ExePath)}\n解压目录：{s.UpdateTarget}\n本地版本：{s.LocalVersion} · 最新 Release：{s.LatestVersion}\n已确认的安装版本：{(string.IsNullOrEmpty(s.ConfirmedTag)?"无":s.ConfirmedTag)}\n\n{(string.IsNullOrWhiteSpace(s.ReleaseNotes)?"暂无发布说明，可点击「查看 Release」前往仓库查看。":s.ReleaseNotes)}":"还没有选择订阅。添加仓库后，在列表中选择软件即可查看详情。";
+        NotesBox.Text=Selected is {} s?$"仓库：{s.Repo}\n本地 EXE：{(string.IsNullOrEmpty(s.ExePath)?"未关联 · 点击「关联 EXE」选择软件主程序":s.ExePath)}\n解压目录：{s.UpdateTarget}\n本地版本：{s.LocalVersion} · 最新 Release：{s.LatestVersion}\n已记录的安装版本：{(string.IsNullOrEmpty(s.ConfirmedTag)?"无":s.ConfirmedTag)}\n\n{(string.IsNullOrWhiteSpace(s.ReleaseNotes)?"暂无发布说明，可点击「查看 Release」前往仓库查看。":s.ReleaseNotes)}":"还没有选择订阅。添加仓库后，在列表中选择软件即可查看详情。";
     }
 }

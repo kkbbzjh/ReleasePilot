@@ -30,6 +30,7 @@ foreach(var (local,remote,expected) in cases) {
 }
 Console.WriteLine($"PASS {cases.Length} version comparisons");
 UpdateChecks.Run();
+AssetChecks.Run();
 var folder=Path.Combine(Path.GetTempPath(),"ReleasePilot-tests-"+Guid.NewGuid());
 Directory.CreateDirectory(folder);
 try

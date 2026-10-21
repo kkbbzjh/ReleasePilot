@@ -10,11 +10,16 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="OptionsPanel" Margin="0,0,8,0">
             <Border Style="{StaticResource Card}" Padding="20" Margin="0,0,0,14"><StackPanel>
                 <TextBlock Text="01  选择发布附件" FontSize="15" FontWeight="SemiBold"/>
-                <TextBlock Text="确认操作系统与架构，再选择更新方式。" Foreground="{StaticResource Muted}" Margin="0,6,0,14"/>
+                <TextBlock x:Name="DeviceText" Foreground="{StaticResource Muted}" Margin="0,6,0,14" TextWrapping="Wrap"/>
                 <ComboBox x:Name="AssetList" SelectionChanged="Asset_Changed" AutomationProperties.Name="Release 附件"/>
+                <TextBlock x:Name="AssetHint" TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource SecondaryInkBrush}" Margin="0,9,0,10"/>
+                <CheckBox x:Name="ArchitectureOverride" Content="我已确认此架构可在当前设备运行（包括仿真支持）" Visibility="Collapsed" Checked="Operation_Changed" Unchecked="Operation_Changed" Margin="0,0,0,10"/>
+                <CheckBox x:Name="ShowOtherAssets" Content="显示其他系统、架构或格式" Checked="AssetFilter_Changed" Unchecked="AssetFilter_Changed"/>
                 <TextBlock Text="更新方式" Foreground="{StaticResource SecondaryInkBrush}" Margin="0,16,0,7"/>
                 <ComboBox x:Name="KindList" SelectionChanged="Kind_Changed" AutomationProperties.Name="更新方式"><ComboBoxItem Content="安装程序 · EXE / MSI" Tag="installer"/><ComboBoxItem Content="解压更新 · ZIP / 7z" Tag="archive"/><ComboBoxItem Content="单文件更新 · 替换本地 EXE" Tag="replace"/></ComboBox>
                 <TextBlock Text="EXE 可能是安装包或单文件，请根据软件的发布说明选择。" TextWrapping="Wrap" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,9,0,0"/>
+                <CheckBox x:Name="RepairMode" Content="重新安装此版本（修复损坏文件）" Checked="Operation_Changed" Unchecked="Operation_Changed" Margin="0,16,0,0"/>
+                <TextBlock Text="重新下载附件，即使版本相同也会执行安装或替换；保留路径规则仍生效，不会清空整个目录。" TextWrapping="Wrap" Foreground="{StaticResource Muted}" FontSize="11" Margin="28,7,0,0"/>
             </StackPanel></Border>
             <Border Style="{StaticResource Card}" Padding="20"><StackPanel>
                 <TextBlock Text="02  配置更新位置" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,14"/>

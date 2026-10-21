@@ -81,9 +81,9 @@
                     <Grid Grid.Row="1" Margin="0,12,0,0">
                         <Grid.Style><Style TargetType="Grid"><Setter Property="IsEnabled" Value="True"/><Style.Triggers><DataTrigger Binding="{Binding SelectedItem, ElementName=SubscriptionsGrid}" Value="{x:Null}"><Setter Property="IsEnabled" Value="False"/></DataTrigger></Style.Triggers></Style></Grid.Style>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <TextBlock Text="版本对不上？更新后可手动确认。" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,0,12,0"/>
-                        <Button Grid.Column="1" Content="安装 / 更新" Click="Update_Click" Padding="12,8" Margin="0,0,8,0" Style="{StaticResource PrimaryButton}"/><Button Grid.Column="2" Content="确认已安装当前版" Click="ConfirmInstalled_Click" Padding="12,8"/>
-                        <Button Grid.Column="3" Content="取消确认" Click="ClearConfirmation_Click" Padding="12,8" Margin="8,0,0,0"/>
+                        <TextBlock Text="已手动安装？可在这里登记版本。" TextWrapping="Wrap" VerticalAlignment="Center" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,0,12,0"/>
+                        <Button Grid.Column="1" Content="安装 / 更新" ToolTip="下载并安装、解压或替换软件，也支持重新安装同一版本来修复损坏文件。" Click="Update_Click" Padding="12,8" Margin="0,0,8,0" Style="{StaticResource PrimaryButton}"/><Button Grid.Column="2" Content="标记为已安装此版本" ToolTip="已经手动安装好此 Release 时，用此按钮登记版本对应关系。不会下载、解压或安装软件；修复损坏文件请使用「安装 / 更新」。" Click="ConfirmInstalled_Click" Padding="12,8"/>
+                        <Button Grid.Column="3" Content="清除安装标记" ToolTip="清除已登记的版本关系，恢复自动比较；不会卸载软件或删除本地文件。" Click="ClearConfirmation_Click" Padding="12,8" Margin="8,0,0,0"/>
                     </Grid>
                 </Grid>
                 <TextBox Grid.Row="1" x:Name="NotesBox" Text="还没有选择订阅。添加仓库后，在列表中选择软件即可查看详情。" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" BorderThickness="0" Background="Transparent" Foreground="#627089" Padding="0,4,8,0"/>

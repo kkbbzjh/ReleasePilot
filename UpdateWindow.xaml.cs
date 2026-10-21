@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -17,6 +18,8 @@ public partial class UpdateWindow : Window
     private CancellationTokenSource? _cancellation;
     private bool _busy;
     private bool _applying;
+    private bool _completed;
+    private IReadOnlyList<AssetOption> _assets=[];
     public bool Restarting {get;private set;}
     private string Kind=>(KindList.SelectedItem as ComboBoxItem)?.Tag?.ToString()??"";
     public UpdateWindow(Subscription subscription,ReleaseInfo release,Action save)
@@ -25,20 +28,54 @@ public partial class UpdateWindow : Window
         ReleaseLabel.Text=$"{subscription.Repo}  ·  {release.Tag}";
         PreserveInput.Text=subscription.PreservePaths;
         UnwrapArchive.IsChecked=subscription.UnwrapArchive;
-        AssetList.ItemsSource=release.Assets.Where(a=>Path.GetExtension(a.Name).ToLowerInvariant() is ".exe" or ".msi" or ".zip" or ".7z").ToArray();
-        AssetList.SelectedItem=AssetList.Items.Cast<ReleaseAsset>().FirstOrDefault(a=>a.Name==subscription.AssetName);
-        if(AssetList.SelectedItem is null && AssetList.Items.Count>0)AssetList.SelectedIndex=0;
-        if(!string.IsNullOrEmpty(subscription.UpdateKind))
+        DeviceText.Text=$"当前设备：Windows {AssetSelector.DeviceLabel(RuntimeInformation.OSArchitecture)} · 根据附件文件名识别";
+        _assets=AssetSelector.Order(release.Assets,RuntimeInformation.OSArchitecture);
+        RepairMode.IsChecked=subscription.ConfirmedTag==release.Tag || VersionHelper.Compare(subscription.LocalVersion,release.Tag)=="已是最新";
+        RefreshAssets(true);
+        if(AssetList.SelectedItem is AssetOption selected && selected.Asset.Name==subscription.AssetName && !string.IsNullOrEmpty(subscription.UpdateKind))
             KindList.SelectedItem=KindList.Items.Cast<ComboBoxItem>().FirstOrDefault(i=>i.Tag.ToString()==subscription.UpdateKind);
-        UpdateTarget();
-        if(AssetList.Items.Count==0){ProgressText.Text="此 Release 没有支持的附件，请使用「查看 Release」。";ApplyButton.IsEnabled=false;}
+        UpdateTarget();UpdateApplyState();
         Closing+=OnClosing;
+    }
+    private void RefreshAssets(bool initial=false)
+    {
+        var previous=initial?_subscription.AssetName:(AssetList.SelectedItem as AssetOption)?.Asset.Name??"";
+        var visible=_assets.Where(option=>ShowOtherAssets.IsChecked==true || option.Supported && option.VisibleByDefault).ToArray();
+        AssetList.ItemsSource=visible;
+        AssetList.SelectedItem=initial?AssetSelector.DefaultSelection(visible,previous)
+            :visible.FirstOrDefault(option=>option.Asset.Name==previous)??AssetSelector.DefaultSelection(visible,"");
+        ShowOtherAssets.Content=$"显示其他系统、架构或格式（{_assets.Count(option=>!option.Supported || !option.VisibleByDefault)} 项）";
+        UpdateApplyState();
+    }
+    private void AssetFilter_Changed(object sender,RoutedEventArgs e)
+    {
+        if(_subscription is null || AssetList is null)return;
+        RefreshAssets();
+    }
+    private void Operation_Changed(object sender,RoutedEventArgs e)
+    {
+        if(_subscription is null || ApplyButton is null)return;
+        UpdateApplyState();
+    }
+    private void UpdateApplyState()
+    {
+        if(ApplyButton is null || AssetHint is null)return;
+        ApplyButton.IsEnabled=!_busy && !_completed && AssetList.SelectedItem is AssetOption {CanApply:true} selected
+            && (selected.Match!=AssetMatch.OtherArchitecture || ArchitectureOverride.IsChecked==true);
+        ApplyButton.Content=_completed?(RepairMode.IsChecked==true?"重新安装完成":"更新完成"):RepairMode.IsChecked==true?"重新下载并安装":"下载并更新";
+        if(AssetList.SelectedItem is AssetOption option)AssetHint.Text=option.Explanation;
+        else if(_assets.Count>0 && AssetList.Items.Count==0)AssetHint.Text="当前列表没有适用附件。可展开其他系统、架构或格式查看，或前往 Release 核对。";
+        else if(_assets.Count>0)AssetHint.Text="请选择附件。未标明系统或架构的附件不会自动选中，请先核对发布说明。";
+        else AssetHint.Text="此 Release 没有可识别的软件包附件，请使用「查看 Release」。";
     }
     private void Asset_Changed(object sender,SelectionChangedEventArgs e)
     {
-        if(AssetList.SelectedItem is not ReleaseAsset asset || KindList is null)return;
-        var ext=Path.GetExtension(asset.Name).ToLowerInvariant();
+        if(ArchitectureOverride is not null){ArchitectureOverride.IsChecked=false;ArchitectureOverride.Visibility=Visibility.Collapsed;}
+        if(AssetList.SelectedItem is not AssetOption option || KindList is null){UpdateApplyState();return;}
+        ArchitectureOverride.Visibility=option.Match==AssetMatch.OtherArchitecture?Visibility.Visible:Visibility.Collapsed;
+        var asset=option.Asset;var ext=Path.GetExtension(asset.Name).ToLowerInvariant();
         KindList.SelectedIndex=ext is ".zip" or ".7z"?1:ext==".msi" || asset.Name.Contains("setup",StringComparison.OrdinalIgnoreCase) || asset.Name.Contains("install",StringComparison.OrdinalIgnoreCase)?0:2;
+        UpdateApplyState();
     }
     private void Kind_Changed(object sender,SelectionChangedEventArgs e)
     {
@@ -67,7 +104,10 @@ public partial class UpdateWindow : Window
     }
     private async void Apply_Click(object sender,RoutedEventArgs e)
     {
-        if(_busy || AssetList.SelectedItem is not ReleaseAsset asset)return;
+        if(_busy || _completed || AssetList.SelectedItem is not AssetOption {CanApply:true} option)return;
+        if(option.Match==AssetMatch.OtherArchitecture && ArchitectureOverride.IsChecked!=true)return;
+        var asset=option.Asset;
+        var repair=RepairMode.IsChecked==true;
         var kind=Kind;var target=TargetInput.Text.Trim();var preserve=PreserveInput.Text;var unwrap=UnwrapArchive.IsChecked==true;
         var extension=Path.GetExtension(asset.Name).ToLowerInvariant();
         if((kind=="archive" && extension is not (".zip" or ".7z")) || (kind=="installer" && extension is not (".exe" or ".msi")) || (kind=="replace" && extension!=".exe"))
@@ -86,7 +126,7 @@ public partial class UpdateWindow : Window
         }
         catch(Exception ex){AppDialog.Show(this,ex.Message,"请检查目标位置",MessageBoxButton.OK,MessageBoxImage.Error);return;}
         var action=kind=="installer"?"启动安装程序，由你完成安装向导":kind=="archive"?$"解压并覆盖到：{target}\n保留路径：{(string.IsNullOrWhiteSpace(preserve)?"无（同名文件将备份后覆盖）":preserve)}\n去掉顶层目录：{(unwrap?"是":"否")}":$"备份并替换：{target}";
-        if(AppDialog.Show(this,$"Release：{_release.Tag}\n附件：{asset.Name}\n\n{action}\n\n确认继续？","确认更新",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No)!=MessageBoxResult.Yes)return;
+        if(AppDialog.Show(this,$"操作：{(repair?"重新安装此版本（重新下载附件）":"安装 / 更新")}\nRelease：{_release.Tag}\n附件：{asset.Name}\n识别结果：{option.Platform} · {option.Architecture}\n{option.Explanation}\n\n{action}\n\n{(repair?"修复安装仍遵守保留路径规则，不会清空目标目录。\n":"")}确认继续？",repair?"确认重新安装":"确认更新",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No)!=MessageBoxResult.Yes)return;
         _busy=true;OptionsPanel.IsEnabled=false;ApplyButton.IsEnabled=false;DownloadProgress.Visibility=Visibility.Visible;CancelButton.Content="取消下载";
         using var cancellation=new CancellationTokenSource(TimeSpan.FromMinutes(30));_cancellation=cancellation;
         var workspace="";
@@ -136,7 +176,7 @@ public partial class UpdateWindow : Window
                     if(process.ExitCode is not (0 or 3010 or 1641))throw new IOException($"安装程序退出码为 {process.ExitCode}，未记录为更新成功。");
                 }
                 if(AppDialog.Show(this,"安装程序已退出。请确认安装向导已成功完成，且没有取消安装。\n\n是否确认本地已安装此 Release？（如安装器启动了另一个窗口，请先完成安装再确认。）","确认安装结果",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No)!=MessageBoxResult.Yes)
-                {ProgressText.Text="安装结果未确认。可稍后关联 EXE，使用「确认已安装当前版」。";return;}
+                {ProgressText.Text="安装结果未确认。可稍后关联 EXE，使用「标记为已安装此版本」。";return;}
                 var exe=new OpenFileDialog {Title="确认安装后的软件主程序",Filter="EXE 文件 (*.exe)|*.exe",FileName=_subscription.ExePath};
                 if(exe.ShowDialog(this)!=true){ProgressText.Text="未选择安装后的主程序，未记录安装版本。";return;}
                 _subscription.ExePath=exe.FileName;
@@ -163,15 +203,15 @@ public partial class UpdateWindow : Window
             _subscription.LocalVersion=VersionHelper.ReadExeVersion(_subscription.ExePath);
             await Task.Run(()=>InstallationConfirmation.Confirm(_subscription));
             _subscription.Status=InstallationConfirmation.GetStatus(_subscription);_save();
-            ProgressText.Text=$"更新完成：{_release.Tag}\n旧文件备份与下载文件保留在：{workspace}";
-            ApplyButton.Content="更新完成";
+            ProgressText.Text=$"{(repair?"重新安装完成":"更新完成")}：{_release.Tag}\n旧文件备份与下载文件保留在：{workspace}";
+            _completed=true;ApplyButton.Content=repair?"重新安装完成":"更新完成";
         }
         catch(OperationCanceledException){ProgressText.Text="更新已取消，尚未修改目标文件。";ApplyButton.IsEnabled=true;}
         catch(Exception ex){ProgressText.Text=$"更新未完成：{ex.Message}\n下载及备份目录：{workspace}";ApplyButton.IsEnabled=true;}
         finally
         {
             _busy=false;_applying=false;_cancellation=null;OptionsPanel.IsEnabled=true;CancelButton.IsEnabled=true;CancelButton.Content="关闭";DownloadProgress.Visibility=Visibility.Collapsed;
-            CurrentFileText.Text="";ProgressDetails.Text="";DownloadProgress.IsIndeterminate=true;
+            CurrentFileText.Text="";ProgressDetails.Text="";DownloadProgress.IsIndeterminate=true;UpdateApplyState();
         }
     }
     private void Cancel_Click(object sender,RoutedEventArgs e)

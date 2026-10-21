@@ -45,7 +45,7 @@ internal static class Program
     {
         var checks=0;
         void Check(bool condition,string description){if(!condition)throw new Exception(description);checks++;}
-        var subscription=new Subscription {Repo="owner/example",LatestVersion="v1.2.0",UpdateKind="archive",UpdateTarget=folder,PreservePaths="config;settings.ini"};
+        var subscription=new Subscription {Repo="owner/example",LocalVersion="1.2.0.0",LatestVersion="v1.2.0",UpdateKind="archive",UpdateTarget=folder,PreservePaths="config;settings.ini"};
         var db=new Database(folder);db.Save(subscription);
         var main=new MainWindow(db);main.Show();await Pump();
         ((DataGrid)main.FindName("SubscriptionsGrid")).SelectedIndex=0;await Pump();Capture(main,"subscriptions");
@@ -53,10 +53,36 @@ internal static class Program
         Check(ReferenceEquals(addButton.Style,main.FindResource("PrimaryButton")),"main primary action uses the shared theme");
         var release=new ReleaseInfo("v1.2.0","https://github.com/owner/example/releases/tag/v1.2.0","Example notes",[
             new ReleaseAsset("example-v1.2.0-windows-x64.7z","https://github.com/owner/example/releases/download/v1.2.0/example.7z",1024,null),
-            new ReleaseAsset("example-v1.2.0-setup.exe","https://github.com/owner/example/releases/download/v1.2.0/example.exe",1024,null)]);
+            new ReleaseAsset("example-v1.2.0-setup.exe","https://github.com/owner/example/releases/download/v1.2.0/example.exe",1024,null),
+            new ReleaseAsset("example-linux-x64.zip","https://github.com/owner/example/releases/download/v1.2.0/linux.zip",1024,null),
+            new ReleaseAsset("example-windows-arm64.zip","https://github.com/owner/example/releases/download/v1.2.0/arm64.zip",1024,null),
+            new ReleaseAsset("example-macos-arm64.dmg","https://github.com/owner/example/releases/download/v1.2.0/mac.dmg",1024,null)]);
         var update=new UpdateWindow(subscription,release,()=>{}) {Owner=main};update.Show();await Pump();
         var apply=(Button)update.FindName("ApplyButton");
         Check(ReferenceEquals(apply.Style,addButton.Style),"update and main primary actions share one style");
+        var assets=(ComboBox)update.FindName("AssetList");
+        Check(assets.SelectedItem is AssetOption {Match:AssetMatch.Recommended},"native package is automatically recommended");
+        Check(assets.Items.Cast<AssetOption>().All(option=>option.VisibleByDefault && option.Supported),"other systems and architectures are hidden initially");
+        var all=(CheckBox)update.FindName("ShowOtherAssets");all.IsChecked=true;await Pump();
+        assets.SelectedItem=assets.Items.Cast<AssetOption>().First(option=>option.Platform=="Linux");await Pump();
+        Check(!apply.IsEnabled && ((TextBlock)update.FindName("AssetHint")).Text.Contains("不能"),"Linux attachment is labeled and cannot be applied on Windows");
+        assets.SelectedItem=assets.Items.Cast<AssetOption>().First(option=>!option.Supported);await Pump();
+        Check(!apply.IsEnabled,"unsupported format cannot be applied");
+        assets.SelectedItem=assets.Items.Cast<AssetOption>().First(option=>option.Match==AssetMatch.OtherArchitecture);await Pump();
+        var compatibility=(CheckBox)update.FindName("ArchitectureOverride");
+        Check(!apply.IsEnabled && compatibility.Visibility==Visibility.Visible,"architecture mismatch requires explicit compatibility acknowledgement");
+        compatibility.IsChecked=true;Check(apply.IsEnabled,"explicit emulation compatibility acknowledgement permits manual selection");
+        all.IsChecked=false;await Pump();
+        Check(assets.SelectedItem is AssetOption {Match:AssetMatch.Recommended} && apply.IsEnabled,"returning to default filter restores a safe native choice");
+        var repair=(CheckBox)update.FindName("RepairMode");
+        Check(repair.IsChecked==true && apply.Content.ToString()!.Contains("重新"),"same installed release offers repair reinstallation");
+        repair.IsChecked=false;Check(apply.Content.ToString()=="下载并更新","normal update label is distinct from repair");repair.IsChecked=true;
+        Check(FindVisual<Button>(main).Any(button=>Equals(button.Content,"标记为已安装此版本") && button.ToolTip.ToString()!.Contains("不会下载")),"version marking explains it does not download or install");
+        var unknownRelease=new ReleaseInfo("config-2026.10","https://github.com/owner/config/releases","",[new ReleaseAsset("config.7z","https://github.com/owner/config/releases/download/v1/config.7z",100,null)]);
+        var unknown=new UpdateWindow(new Subscription {Repo="owner/config",UpdateKind="archive",UpdateTarget=folder},unknownRelease,()=>{}) {Owner=main};unknown.Show();await Pump();
+        var unknownAssets=(ComboBox)unknown.FindName("AssetList");var unknownApply=(Button)unknown.FindName("ApplyButton");
+        Check(unknownAssets.SelectedItem is null && !unknownApply.IsEnabled,"ambiguous config archive requires an explicit choice");
+        unknownAssets.SelectedIndex=0;await Pump();Check(unknownApply.IsEnabled,"manual choice allows a platform-neutral config archive");unknown.Close();
         var input=(TextBox)update.FindName("TargetInput");
         Check(input.Template.FindName("PART_ContentHost",input) is ScrollViewer,"themed textbox retains its edit surface");
         var kinds=(ComboBox)update.FindName("KindList");kinds.IsDropDownOpen=true;await Pump();
