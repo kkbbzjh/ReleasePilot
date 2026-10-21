@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using Microsoft.Win32;
 using ReleasePilot.Models;
 using ReleasePilot.Services;
@@ -15,8 +16,18 @@ public partial class MainWindow : Window
     public MainWindow(){InitializeComponent();SubscriptionsGrid.ItemsSource=_items;Reload();}
     private void Reload()
     {
+        var selectedRepo=Selected?.Repo;
         _items.Clear();foreach(var s in _db.GetAll())_items.Add(s);
+        TotalCountText.Text=_items.Count.ToString();
+        UpdateCountText.Text=_items.Count(s=>s.Status=="发现更新").ToString();
+        LinkedCountText.Text=_items.Count(s=>!string.IsNullOrWhiteSpace(s.ExePath)).ToString();
+        if(selectedRepo is not null)SubscriptionsGrid.SelectedItem=_items.FirstOrDefault(s=>s.Repo==selectedRepo);
         StatusText.Text=$"已订阅 {_items.Count} 个仓库 · 数据保存在本机";
+    }
+    private void RepoInput_KeyDown(object sender,KeyEventArgs e)
+    {
+        if(e.Key!=Key.Enter)return;
+        e.Handled=true;Add_Click(sender,e);
     }
     private async void Add_Click(object sender,RoutedEventArgs e)
     {
@@ -67,10 +78,10 @@ public partial class MainWindow : Window
     {
         if(Selected is not {} s)return;
         if(MessageBox.Show($"确定删除 {s.Repo} 的订阅？","确认",MessageBoxButton.YesNo)!=MessageBoxResult.Yes)return;
-        _db.Delete(s.Repo);Reload();NotesBox.Text="";
+        _db.Delete(s.Repo);Reload();
     }
     private void Grid_SelectionChanged(object sender,SelectionChangedEventArgs e)
     {
-        NotesBox.Text=Selected is {} s?$"仓库：{s.Repo}\n本地 EXE：{(string.IsNullOrEmpty(s.ExePath)?"未关联":s.ExePath)}\n\n{s.ReleaseNotes}":"选择一项订阅查看更新日志";
+        NotesBox.Text=Selected is {} s?$"仓库：{s.Repo}\n本地 EXE：{(string.IsNullOrEmpty(s.ExePath)?"未关联 · 点击「关联 EXE」选择软件主程序":s.ExePath)}\n\n{(string.IsNullOrWhiteSpace(s.ReleaseNotes)?"暂无发布说明，可点击「查看 Release」前往仓库查看。":s.ReleaseNotes)}":"还没有选择订阅。添加仓库后，在列表中选择软件即可查看详情。";
     }
 }
