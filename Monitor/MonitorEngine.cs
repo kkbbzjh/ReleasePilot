@@ -23,7 +23,7 @@ public sealed class MonitorEngine
             handler.Proxy=new WebProxy(proxy);
         }
         using var http=new HttpClient(handler){Timeout=TimeSpan.FromSeconds(25)};
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("ReleasePilot-Monitor/0.3.1");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("ReleasePilot-Monitor/0.3.2");
         var releases=new Dictionary<string,WatchRelease>(StringComparer.OrdinalIgnoreCase);
         state.Error="";
         foreach(var subscription in config.Subscriptions.OfType<WatchSubscription>().Where(x=>MonitorFiles.ValidRepo(x.Repo)).DistinctBy(x=>x.Repo,StringComparer.OrdinalIgnoreCase).Take(200))

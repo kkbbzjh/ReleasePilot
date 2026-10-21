@@ -4,12 +4,21 @@ param(
  [string]$SourceWorker
 )
 $ErrorActionPreference='Stop'
+function Assert-NoReparse([string]$Path) {
+ $current=[IO.Path]::GetFullPath($Path)
+ while($current) {
+  if(Test-Path -LiteralPath $current){if(((Get-Item -LiteralPath $current -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw 'Service directories cannot use symbolic links or junctions'}}
+  $current=[IO.Path]::GetDirectoryName($current)
+ }
+}
 try {
  $sid=New-Object System.Security.Principal.SecurityIdentifier($UserSid)
  if($UserSid -notmatch '^S-1-(5-21|12-1)-[0-9-]+$'){throw 'Invalid user SID'}
  $serviceName='ReleasePilotMonitor'
  $destination=Join-Path $env:ProgramFiles 'ReleasePilot Service'
  $worker=Join-Path $destination 'ReleasePilot.Monitor.exe'
+ Assert-NoReparse $destination
+ Assert-NoReparse $worker
  $service=Get-Service $serviceName -ErrorAction SilentlyContinue
  if($Operation -eq 'Uninstall') {
   if($service){Stop-Service $serviceName -Force;$service.WaitForStatus('Stopped',[TimeSpan]::FromSeconds(30)); & sc.exe delete $serviceName;if($LASTEXITCODE -ne 0){throw 'Cannot remove service'}}
@@ -23,6 +32,7 @@ try {
  # The binary directory must be writable only by administrators and SYSTEM.
  $acl=New-Object System.Security.AccessControl.DirectorySecurity
  $acl.SetAccessRuleProtection($true,$false)
+ $acl.SetOwner((New-Object System.Security.Principal.SecurityIdentifier('S-1-5-32-544')))
  foreach($identity in @('S-1-5-18','S-1-5-32-544')) {
   $rule=New-Object System.Security.AccessControl.FileSystemAccessRule((New-Object System.Security.Principal.SecurityIdentifier($identity)),'FullControl','ContainerInherit,ObjectInherit','None','Allow');$acl.AddAccessRule($rule)
  }
@@ -31,14 +41,20 @@ try {
  }
  Set-Acl $destination $acl
  Copy-Item -LiteralPath $SourceWorker -Destination $worker -Force
- $root=Join-Path $env:ProgramData 'ReleasePilot\Monitor'
+ $parent=Join-Path $env:ProgramData 'ReleasePilot'
+ $root=Join-Path $parent 'Monitor'
+ Assert-NoReparse $root
+ New-Item $parent -ItemType Directory -Force | Out-Null
+ Set-Acl $parent $acl
  New-Item $root -ItemType Directory -Force | Out-Null
  # Root is read-only for ordinary users; each profile grants only its owner access.
  Set-Acl $root $acl
  $profile=Join-Path $root $UserSid
+ Assert-NoReparse $profile
  New-Item $profile -ItemType Directory -Force | Out-Null
  $profileAcl=New-Object System.Security.AccessControl.DirectorySecurity
  $profileAcl.SetAccessRuleProtection($true,$false)
+ $profileAcl.SetOwner((New-Object System.Security.Principal.SecurityIdentifier('S-1-5-32-544')))
  foreach($identity in @('S-1-5-18','S-1-5-32-544')) {
   $rule=New-Object System.Security.AccessControl.FileSystemAccessRule((New-Object System.Security.Principal.SecurityIdentifier($identity)),'FullControl','ContainerInherit,ObjectInherit','None','Allow');$profileAcl.AddAccessRule($rule)
  }

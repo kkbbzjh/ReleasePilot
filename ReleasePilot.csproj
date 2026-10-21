@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ReleasePilot</AssemblyName>
-    <Version>0.3.1</Version>
+    <Version>0.3.2</Version>
     <ApplicationIcon>Assets/ReleasePilot.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
