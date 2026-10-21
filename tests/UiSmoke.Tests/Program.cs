@@ -12,8 +12,10 @@ using ReleasePilot.Services;
 internal static class Program
 {
     [STAThread]
-    private static int Main()
+    private static bool _screenshotsOnly;
+    private static int Main(string[] args)
     {
+        _screenshotsOnly=args.Contains("--screenshots-only");
         try{return RunApplication();}catch(Exception ex){ReportFailure(ex);return 1;}
     }
     private static int RunApplication()
@@ -29,7 +31,8 @@ internal static class Program
             Directory.CreateDirectory(folder);
             try
             {
-                await Run(folder);exit=0;
+                if(_screenshotsOnly)await ScreenshotGallery.Run(folder);else await Run(folder);
+                exit=0;
             }
             catch(Exception ex){ReportFailure(ex);}
             finally
