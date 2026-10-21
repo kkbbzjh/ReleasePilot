@@ -9,11 +9,12 @@ using ReleasePilot.Services;
 namespace ReleasePilot;
 public partial class MainWindow : Window
 {
-    private readonly Database _db=new();
+    private readonly Database _db;
     private readonly GitHubClient _github=new();
     private readonly ObservableCollection<Subscription> _items=new();
     private Subscription? Selected=>SubscriptionsGrid.SelectedItem as Subscription;
-    public MainWindow(){InitializeComponent();SubscriptionsGrid.ItemsSource=_items;Reload();}
+    public MainWindow():this(new Database()) { }
+    public MainWindow(Database database){_db=database;InitializeComponent();SubscriptionsGrid.ItemsSource=_items;Reload();}
     private void Reload()
     {
         var selectedRepo=Selected?.Repo;
@@ -34,10 +35,10 @@ public partial class MainWindow : Window
         try
         {
             var repo=GitHubClient.ParseRepo(RepoInput.Text);
-            if(_items.Any(x=>x.Repo.Equals(repo,StringComparison.OrdinalIgnoreCase))){MessageBox.Show("该仓库已添加");return;}
+            if(_items.Any(x=>x.Repo.Equals(repo,StringComparison.OrdinalIgnoreCase))){AppDialog.Show("该仓库已添加");return;}
             var s=new Subscription{Repo=repo};_db.Save(s);RepoInput.Clear();Reload();await CheckOne(s);Reload();
         }
-        catch(Exception ex){MessageBox.Show(ex.Message,"添加失败");}
+        catch(Exception ex){AppDialog.Show(this,ex.Message,"添加失败",MessageBoxButton.OK,MessageBoxImage.Error);}
     }
     private async Task CheckOne(Subscription s)
     {
@@ -61,9 +62,9 @@ public partial class MainWindow : Window
     }
     private async void LinkExe_Click(object sender,RoutedEventArgs e)
     {
-        if(Selected is not {} s){MessageBox.Show("请先选择软件");return;}
+        if(Selected is not {} s){AppDialog.Show("请先选择软件");return;}
         var dialog=new OpenFileDialog{Title="选择需要关联的软件 EXE",Filter="可执行文件 (*.exe)|*.exe"};
-        if(dialog.ShowDialog()!=true)return;
+        if(dialog.ShowDialog(this)!=true)return;
         s.UpdateKind="";s.UpdateTarget="";InstallationConfirmation.Clear(s);
         s.ExePath=dialog.FileName;s.LocalVersion=VersionHelper.ReadExeVersion(s.ExePath);
         s.Status=string.IsNullOrEmpty(s.LatestVersion)?"尚未检查":InstallationConfirmation.GetStatus(s);
@@ -85,11 +86,11 @@ public partial class MainWindow : Window
         try
         {
             var release=await _github.GetLatestAsync(s.Repo);
-            if(release is null){MessageBox.Show(this,"该仓库暂无正式 Release。","无法更新");return;}
+            if(release is null){AppDialog.Show(this,"该仓库暂无正式 Release。","无法更新");return;}
             var window=new UpdateWindow(s,release,()=>_db.Save(s)) {Owner=this};
             window.ShowDialog();Reload();
         }
-        catch(Exception ex){MessageBox.Show(this,ex.Message,"无法获取更新");}
+        catch(Exception ex){AppDialog.Show(this,ex.Message,"无法获取更新",MessageBoxButton.OK,MessageBoxImage.Error);}
         finally{button.IsEnabled=true;}
     }
     private void OpenRelease_Click(object sender,RoutedEventArgs e)
@@ -107,15 +108,15 @@ public partial class MainWindow : Window
             await CheckOne(s);
             if(s.Status=="检查失败" || string.IsNullOrWhiteSpace(s.LatestVersion))
             {
-                MessageBox.Show(this,"无法获取最新 Release，请成功检查后再确认。","暂时无法确认");return;
+                AppDialog.Show(this,"无法获取最新 Release，请成功检查后再确认。","暂时无法确认");return;
             }
             var local=s.UpdateKind=="archive"?$"解压目录：{s.UpdateTarget}":$"本地 EXE：{s.ExePath}\n文件版本：{(string.IsNullOrWhiteSpace(s.LocalVersion)?"未读取到":s.LocalVersion)}";
-            var prompt=$"仓库：{s.Repo}\n{local}\n最新 Release：{s.LatestVersion}\n\n只有你确定本地已经是上述 Release 时，才选择「是」。\n此操作仅记录版本对应关系，不会下载或安装更新。\n尚未更新时，请先点击「安装 / 更新」。";
-            if(MessageBox.Show(this,prompt,"确认已安装当前 Release",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No)!=MessageBoxResult.Yes)return;
+            var prompt=$"仓库：{s.Repo}\n{local}\n最新 Release：{s.LatestVersion}\n\n只有你确定本地已经是上述 Release 时，才点击「确认继续」。\n此操作仅记录版本对应关系，不会下载或安装更新。\n尚未更新时，请先点击「安装 / 更新」。";
+            if(AppDialog.Show(this,prompt,"确认已安装当前 Release",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No)!=MessageBoxResult.Yes)return;
             await Task.Run(()=>InstallationConfirmation.Confirm(s));
             s.Status=InstallationConfirmation.GetStatus(s);_db.Save(s);
         }
-        catch(Exception ex){MessageBox.Show(this,ex.Message,"确认失败");}
+        catch(Exception ex){AppDialog.Show(this,ex.Message,"确认失败",MessageBoxButton.OK,MessageBoxImage.Error);}
         finally{Reload();button.IsEnabled=true;}
     }
     private void ClearConfirmation_Click(object sender,RoutedEventArgs e)
@@ -128,12 +129,12 @@ public partial class MainWindow : Window
             s.Status=string.IsNullOrWhiteSpace(s.LatestVersion)?"尚未检查":InstallationConfirmation.GetStatus(s);
             _db.Save(s);Reload();
         }
-        catch(Exception ex){MessageBox.Show(this,ex.Message,"取消确认失败");}
+        catch(Exception ex){AppDialog.Show(this,ex.Message,"取消确认失败",MessageBoxButton.OK,MessageBoxImage.Error);}
     }
     private void Delete_Click(object sender,RoutedEventArgs e)
     {
         if(Selected is not {} s)return;
-        if(MessageBox.Show($"确定删除 {s.Repo} 的订阅？","确认",MessageBoxButton.YesNo)!=MessageBoxResult.Yes)return;
+        if(AppDialog.Show(this,$"确定删除 {s.Repo} 的订阅？\n仅移除订阅记录，不删除本地软件或备份。","删除订阅",MessageBoxButton.YesNo,MessageBoxImage.Warning,MessageBoxResult.No)!=MessageBoxResult.Yes)return;
         _db.Delete(s.Repo);Reload();
     }
     private void Grid_SelectionChanged(object sender,SelectionChangedEventArgs e)

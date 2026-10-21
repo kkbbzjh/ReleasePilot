@@ -10,7 +10,7 @@ public partial class App : Application
         {
             ShutdownMode=ShutdownMode.OnExplicitShutdown;
             try{await UpdateService.CompleteSelfReplacementAsync(e.Args[1]);}
-            catch(Exception ex){MessageBox.Show($"自更新未完成：{ex.Message}\n下载和备份保留在更新目录中。","ReleasePilot 更新助手");}
+            catch(Exception ex){AppDialog.Show($"自更新未完成：{ex.Message}\n下载和备份保留在更新目录中。","ReleasePilot 更新助手");}
             Shutdown();return;
         }
         MainWindow=new MainWindow();MainWindow.Show();

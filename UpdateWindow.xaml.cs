@@ -71,7 +71,7 @@ public partial class UpdateWindow : Window
         var kind=Kind;var target=TargetInput.Text.Trim();var preserve=PreserveInput.Text;var unwrap=UnwrapArchive.IsChecked==true;
         var extension=Path.GetExtension(asset.Name).ToLowerInvariant();
         if((kind=="archive" && extension is not (".zip" or ".7z")) || (kind=="installer" && extension is not (".exe" or ".msi")) || (kind=="replace" && extension!=".exe"))
-        {MessageBox.Show(this,"所选附件与更新方式不匹配。","请检查更新方式");return;}
+        {AppDialog.Show(this,"所选附件与更新方式不匹配。","请检查更新方式");return;}
         try
         {
             if(kind!="installer")
@@ -84,9 +84,9 @@ public partial class UpdateWindow : Window
                 UpdateService.PreservedPaths(preserve);
             }
         }
-        catch(Exception ex){MessageBox.Show(this,ex.Message,"请检查目标位置");return;}
+        catch(Exception ex){AppDialog.Show(this,ex.Message,"请检查目标位置",MessageBoxButton.OK,MessageBoxImage.Error);return;}
         var action=kind=="installer"?"启动安装程序，由你完成安装向导":kind=="archive"?$"解压并覆盖到：{target}\n保留路径：{(string.IsNullOrWhiteSpace(preserve)?"无（同名文件将备份后覆盖）":preserve)}\n去掉顶层目录：{(unwrap?"是":"否")}":$"备份并替换：{target}";
-        if(MessageBox.Show(this,$"Release：{_release.Tag}\n附件：{asset.Name}\n\n{action}\n\n确认继续？","确认更新",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No)!=MessageBoxResult.Yes)return;
+        if(AppDialog.Show(this,$"Release：{_release.Tag}\n附件：{asset.Name}\n\n{action}\n\n确认继续？","确认更新",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No)!=MessageBoxResult.Yes)return;
         _busy=true;OptionsPanel.IsEnabled=false;ApplyButton.IsEnabled=false;DownloadProgress.Visibility=Visibility.Visible;CancelButton.Content="取消下载";
         using var cancellation=new CancellationTokenSource(TimeSpan.FromMinutes(30));_cancellation=cancellation;
         var workspace="";
@@ -135,7 +135,7 @@ public partial class UpdateWindow : Window
                     await process.WaitForExitAsync();
                     if(process.ExitCode is not (0 or 3010 or 1641))throw new IOException($"安装程序退出码为 {process.ExitCode}，未记录为更新成功。");
                 }
-                if(MessageBox.Show(this,"安装程序已退出。请确认安装向导已成功完成，且没有取消安装。\n\n是否确认本地已安装此 Release？（如安装器启动了另一个窗口，请先完成安装再确认。）","确认安装结果",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No)!=MessageBoxResult.Yes)
+                if(AppDialog.Show(this,"安装程序已退出。请确认安装向导已成功完成，且没有取消安装。\n\n是否确认本地已安装此 Release？（如安装器启动了另一个窗口，请先完成安装再确认。）","确认安装结果",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No)!=MessageBoxResult.Yes)
                 {ProgressText.Text="安装结果未确认。可稍后关联 EXE，使用「确认已安装当前版」。";return;}
                 var exe=new OpenFileDialog {Title="确认安装后的软件主程序",Filter="EXE 文件 (*.exe)|*.exe",FileName=_subscription.ExePath};
                 if(exe.ShowDialog(this)!=true){ProgressText.Text="未选择安装后的主程序，未记录安装版本。";return;}
