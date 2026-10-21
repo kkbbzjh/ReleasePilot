@@ -8,6 +8,7 @@ try {
  if($service.Status -ne 'Running'){throw 'Native service did not reach Running state'}
  $info=Get-CimInstance Win32_Service -Filter "Name='$name'"
  if($info.StartName -ne 'NT AUTHORITY\LocalService' -or $info.StartMode -ne 'Auto'){throw 'Service must use LocalService and automatic startup'}
+ if($info.PathName -ne ('"'+(Join-Path $env:ProgramFiles 'ReleasePilot Service\ReleasePilot.Monitor.exe')+'"')){throw 'Service binary path must retain quotes around its spaces'}
  $process=Get-Process -Id $info.ProcessId
  Write-Host "::notice title=Native service resource check::Native service running: working set $([Math]::Round($process.WorkingSet64/1MB,1)) MB; binary $((Get-Item 'service-payload/ReleasePilot.Monitor.exe').Length) bytes"
  $profile=Join-Path $env:ProgramData "ReleasePilot\Monitor\$sid"

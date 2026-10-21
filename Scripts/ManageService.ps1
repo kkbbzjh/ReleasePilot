@@ -41,8 +41,9 @@ function Invoke-ServiceCommand([string[]]$Arguments) {
 function Stop-ExistingService {
  if(!$script:service){return}
  Set-Step 'StopService'
- $info=Get-CimInstance Win32_Service -Filter "Name='$serviceName'"
- $oldProcessId=[int]$info.ProcessId
+ $oldProcessId=0
+ try{$info=Get-CimInstance Win32_Service -Filter "Name='$serviceName'";$oldProcessId=[int]$info.ProcessId}
+ catch{Write-InstallLog ('Process lookup unavailable; file replacement will retry sharing violations: '+$_.Exception.Message)}
  $script:service.Refresh()
  if($script:service.Status -ne 'Stopped'){Stop-Service $serviceName -Force;$script:service.WaitForStatus('Stopped',[TimeSpan]::FromSeconds(30))}
  # STOPPED can be reported before the executable is unlocked. Wait for that process too.
@@ -81,7 +82,10 @@ try {
  }
  Set-Acl $destination $acl
  Set-Step 'InstallFiles'
- Copy-Item -LiteralPath $SourceWorker -Destination $worker -Force
+ for($attempt=0;;$attempt++) {
+  try{Copy-Item -LiteralPath $SourceWorker -Destination $worker -Force;break}
+  catch{if(($_.Exception.HResult -band 65535) -notin @(32,33) -or $attempt -ge 20){throw};Start-Sleep -Milliseconds 500}
+ }
  Write-InstallLog ('Worker SHA256='+((Get-FileHash -LiteralPath $worker -Algorithm SHA256).Hash))
  Set-Step 'SetPermissions'
  $parent=Join-Path $env:ProgramData 'ReleasePilot'

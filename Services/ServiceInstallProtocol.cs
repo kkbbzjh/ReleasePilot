@@ -35,6 +35,7 @@ public static class ServiceInstallProtocol
         var message=$"失败步骤：{step}\n";
         message+=!string.IsNullOrWhiteSpace(result?.Error)?result.Error:"安装程序未返回错误详情。可能被系统策略或安全软件阻止，请查看安装日志。";
         if(result?.NativeErrorCode is >0)message+=$"\nWindows 错误码：{result.NativeErrorCode}";
+        if(!string.IsNullOrWhiteSpace(result?.HResult))message+=$"\nHRESULT：0x{result.HResult}";
         message+=$"\n安装退出码：{exitCode}（0x{unchecked((uint)exitCode):X8}）\n日志：{logPath}";
         return message;
     }

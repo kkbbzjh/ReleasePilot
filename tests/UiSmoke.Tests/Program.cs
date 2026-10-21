@@ -62,6 +62,16 @@ internal static class Program
             var staging=Path.Combine(folder,"安装 路径 O'Brien");
             try
             {
+                Directory.CreateDirectory(staging);
+                var broken=Path.Combine(staging,"invalid.ps1");var report=Path.Combine(staging,"failure.json");var log=Path.Combine(staging,"failure.log");
+                File.WriteAllText(broken,"throw 'injected installer failure'",new System.Text.UTF8Encoding(true));
+                var start=new System.Diagnostics.ProcessStartInfo(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),@"WindowsPowerShell\v1.0\powershell.exe")){UseShellExecute=false,CreateNoWindow=true};
+                foreach(var arg in new[]{"-NoProfile","-NonInteractive","-EncodedCommand",ServiceInstallProtocol.Encode(ServiceInstallProtocol.Bootstrap(broken,"Install",WindowsMonitorManager.UserSid,"unused",report,log))})start.ArgumentList.Add(arg);
+                using(var child=System.Diagnostics.Process.Start(start)!)
+                {
+                    await child.WaitForExitAsync();
+                    Check(child.ExitCode!=0 && ServiceInstallProtocol.Parse(File.ReadAllText(report)) is {Success:false,Step:"LaunchScript"},"bootstrap captures failures before installer diagnostics initialize");
+                }
                 await WindowsMonitorManager.ManageAsync("Install",staging);
                 Check(WindowsMonitorManager.Status().StartsWith("运行中"),"embedded installer starts real service through ShellExecute/runas");
                 await WindowsMonitorManager.ManageAsync("Install",staging);
