@@ -6,10 +6,11 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ReleasePilot</AssemblyName>
-    <Version>0.2.1</Version>
+    <Version>0.2.2</Version>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="tests/**/*.cs" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.2" />
+    <PackageReference Include="SharpCompress" Version="1.0.0" />
   </ItemGroup>
 </Project>

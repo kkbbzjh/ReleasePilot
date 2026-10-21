@@ -4,7 +4,11 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 namespace ReleasePilot.Services;
-public sealed record ReleaseInfo(string Tag,string Url,string Notes);
+public sealed record ReleaseAsset(string Name,string Url,long Size,string? Digest)
+{
+    public override string ToString()=>$"{Name}  ·  {Size/1024d/1024d:F1} MB";
+}
+public sealed record ReleaseInfo(string Tag,string Url,string Notes,IReadOnlyList<ReleaseAsset> Assets);
 public sealed class GitHubClient
 {
     private static readonly HttpClient Http = CreateClient();
@@ -38,6 +42,9 @@ public sealed class GitHubClient
         response.EnsureSuccessStatusCode();
         using var json=JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var root=json.RootElement;
-        return new ReleaseInfo(root.GetProperty("tag_name").GetString()??"",root.GetProperty("html_url").GetString()??"",root.TryGetProperty("body",out var body)?body.GetString()??"":"");
+        var assets=new List<ReleaseAsset>();
+        if(root.TryGetProperty("assets",out var list))foreach(var asset in list.EnumerateArray())
+            assets.Add(new ReleaseAsset(asset.GetProperty("name").GetString()??"",asset.GetProperty("browser_download_url").GetString()??"",asset.GetProperty("size").GetInt64(),asset.TryGetProperty("digest",out var digest)?digest.GetString():null));
+        return new ReleaseInfo(root.GetProperty("tag_name").GetString()??"",root.GetProperty("html_url").GetString()??"",root.TryGetProperty("body",out var body)?body.GetString()??"":"",assets);
     }
 }

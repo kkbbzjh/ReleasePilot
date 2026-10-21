@@ -1,0 +1,26 @@
+<Window x:Class="ReleasePilot.UpdateWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="更新软件" Width="700" Height="650" MinWidth="620" MinHeight="620" WindowStartupLocation="CenterOwner" Background="#F4F6FA" FontFamily="Segoe UI, Microsoft YaHei UI" FontSize="13">
+    <Grid Margin="24">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <StackPanel Margin="0,0,0,18"><TextBlock Text="安装与更新" FontSize="24" FontWeight="SemiBold" Foreground="#202B40"/><TextBlock x:Name="ReleaseLabel" Margin="0,8,0,0" Foreground="#627089" TextWrapping="Wrap"/></StackPanel>
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"><StackPanel x:Name="OptionsPanel" Margin="0,0,10,0">
+            <TextBlock Text="1. 选择适合系统和架构的 Release 附件" Margin="0,0,0,7"/>
+            <ComboBox x:Name="AssetList" Padding="8" SelectionChanged="Asset_Changed"/>
+            <TextBlock Text="2. 更新方式（EXE 可能是安装包，也可能是单文件，请核对）" Margin="0,16,0,7"/>
+            <ComboBox x:Name="KindList" Padding="8" SelectionChanged="Kind_Changed"><ComboBoxItem Content="安装程序 · EXE / MSI" Tag="installer"/><ComboBoxItem Content="解压更新 · ZIP / 7z" Tag="archive"/><ComboBoxItem Content="单文件更新 · 替换本地 EXE" Tag="replace"/></ComboBox>
+            <TextBlock x:Name="TargetLabel" Text="3. 目标位置" Margin="0,16,0,7"/>
+            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBox x:Name="TargetInput" Padding="8"/><Button Grid.Column="1" x:Name="BrowseButton" Content="浏览…" Click="Browse_Click" Padding="14,8" Margin="8,0,0,0"/></Grid>
+            <StackPanel x:Name="ArchiveOptions" Visibility="Collapsed">
+                <TextBlock Text="保留这些文件或目录，不覆盖（相对目标目录；用分号分隔）" Margin="0,14,0,7"/>
+                <TextBox x:Name="PreserveInput" Padding="8" ToolTip="例如 mpv.conf;input.conf;portable_config/mpv.conf。填写目录名会保留整个目录，不支持通配符。"/>
+                <CheckBox x:Name="UnwrapArchive" Content="去掉压缩包唯一的顶层目录（默认保留原始目录结构）" Margin="0,10,0,0"/>
+            </StackPanel>
+            <TextBlock x:Name="Explanation" TextWrapping="Wrap" Foreground="#627089" Margin="0,14,0,0"/>
+        </StackPanel></ScrollViewer>
+        <StackPanel Grid.Row="2" VerticalAlignment="Bottom" Margin="0,18,0,14">
+            <TextBlock x:Name="ProgressText" Text="下载前会再次确认。旧文件将备份，安装程序由你完成向导。" TextWrapping="Wrap" Foreground="#42516A"/>
+            <ProgressBar x:Name="DownloadProgress" Height="5" Margin="0,12,0,0" Visibility="Collapsed" IsIndeterminate="True"/>
+        </StackPanel>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right"><Button x:Name="CancelButton" Content="关闭" Click="Cancel_Click" Padding="18,10" Margin="0,0,10,0"/><Button x:Name="ApplyButton" Content="下载并更新" Click="Apply_Click" Padding="18,10" Background="#4266E8" Foreground="White"/></StackPanel>
+    </Grid>
+</Window>

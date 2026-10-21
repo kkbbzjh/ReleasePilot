@@ -7,5 +7,13 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../Services/VersionHelper.cs" Link="VersionHelper.cs" />
+    <Compile Include="../../Services/InstallationConfirmation.cs" Link="InstallationConfirmation.cs" />
+    <Compile Include="../../Services/Database.cs" Link="Database.cs" />
+    <Compile Include="../../Models/Subscription.cs" Link="Subscription.cs" />
+    <Compile Include="../../Services/UpdateService.cs" Link="UpdateService.cs" />
+    <Compile Include="../../Services/GitHubClient.cs" Link="GitHubClient.cs" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.2" />
+    <PackageReference Include="SharpCompress" Version="1.0.0" />
+    <None Update="Fixtures/tiny.7z" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

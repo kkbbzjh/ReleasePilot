@@ -19,7 +19,7 @@ public partial class MainWindow : Window
         var selectedRepo=Selected?.Repo;
         _items.Clear();foreach(var s in _db.GetAll())_items.Add(s);
         TotalCountText.Text=_items.Count.ToString();
-        UpdateCountText.Text=_items.Count(s=>s.Status=="发现更新").ToString();
+        UpdateCountText.Text=_items.Count(s=>s.Status is "发现更新" or "发现新发布").ToString();
         LinkedCountText.Text=_items.Count(s=>!string.IsNullOrWhiteSpace(s.ExePath)).ToString();
         if(selectedRepo is not null)SubscriptionsGrid.SelectedItem=_items.FirstOrDefault(s=>s.Repo==selectedRepo);
         StatusText.Text=$"已订阅 {_items.Count} 个仓库 · 数据保存在本机";
@@ -47,7 +47,7 @@ public partial class MainWindow : Window
             var release=await _github.GetLatestAsync(s.Repo);
             s.LocalVersion=VersionHelper.ReadExeVersion(s.ExePath);
             if(release is null){s.Status="无正式 Release";s.LatestVersion="";s.ReleaseNotes="";s.ReleaseUrl="";}
-            else{s.LatestVersion=release.Tag;s.ReleaseNotes=release.Notes;s.ReleaseUrl=release.Url;s.Status=VersionHelper.Compare(s.LocalVersion,s.LatestVersion);}
+            else{s.LatestVersion=release.Tag;s.ReleaseNotes=release.Notes;s.ReleaseUrl=release.Url;s.Status=await Task.Run(()=>InstallationConfirmation.GetStatus(s));}
             s.CheckedAt=DateTime.Now.ToString("yyyy-MM-dd HH:mm");_db.Save(s);
         }
         catch(Exception ex){s.Status="检查失败";StatusText.Text=$"{s.Repo}: {ex.Message}";_db.Save(s);}
@@ -64,15 +64,71 @@ public partial class MainWindow : Window
         if(Selected is not {} s){MessageBox.Show("请先选择软件");return;}
         var dialog=new OpenFileDialog{Title="选择需要关联的软件 EXE",Filter="可执行文件 (*.exe)|*.exe"};
         if(dialog.ShowDialog()!=true)return;
+        s.UpdateKind="";s.UpdateTarget="";InstallationConfirmation.Clear(s);
         s.ExePath=dialog.FileName;s.LocalVersion=VersionHelper.ReadExeVersion(s.ExePath);
-        s.Status=string.IsNullOrEmpty(s.LatestVersion)?"尚未检查":VersionHelper.Compare(s.LocalVersion,s.LatestVersion);
+        s.Status=string.IsNullOrEmpty(s.LatestVersion)?"尚未检查":InstallationConfirmation.GetStatus(s);
         _db.Save(s);await CheckOne(s);Reload();StatusText.Text=$"已关联：{dialog.FileName}";
+    }
+    private async void LinkFolder_Click(object sender,RoutedEventArgs e)
+    {
+        if(Selected is not {} s)return;
+        var dialog=new OpenFolderDialog {Title="选择软件或配置包的解压目录"};
+        if(dialog.ShowDialog(this)!=true)return;
+        if(s.UpdateKind!="archive" || s.UpdateTarget!=dialog.FolderName)InstallationConfirmation.Clear(s);
+        s.UpdateKind="archive";s.UpdateTarget=dialog.FolderName;
+        _db.Save(s);await CheckOne(s);Reload();
+    }
+    private async void Update_Click(object sender,RoutedEventArgs e)
+    {
+        if(Selected is not {} s)return;
+        var button=(Button)sender;button.IsEnabled=false;
+        try
+        {
+            var release=await _github.GetLatestAsync(s.Repo);
+            if(release is null){MessageBox.Show(this,"该仓库暂无正式 Release。","无法更新");return;}
+            var window=new UpdateWindow(s,release,()=>_db.Save(s)) {Owner=this};
+            window.ShowDialog();Reload();
+        }
+        catch(Exception ex){MessageBox.Show(this,ex.Message,"无法获取更新");}
+        finally{button.IsEnabled=true;}
     }
     private void OpenRelease_Click(object sender,RoutedEventArgs e)
     {
         if(Selected is not {} s)return;
         var url=string.IsNullOrWhiteSpace(s.ReleaseUrl)?$"https://github.com/{s.Repo}/releases":s.ReleaseUrl;
         Process.Start(new ProcessStartInfo(url){UseShellExecute=true});
+    }
+    private async void ConfirmInstalled_Click(object sender,RoutedEventArgs e)
+    {
+        if(Selected is not {} s)return;
+        var button=(Button)sender;button.IsEnabled=false;
+        try
+        {
+            await CheckOne(s);
+            if(s.Status=="检查失败" || string.IsNullOrWhiteSpace(s.LatestVersion))
+            {
+                MessageBox.Show(this,"无法获取最新 Release，请成功检查后再确认。","暂时无法确认");return;
+            }
+            var local=s.UpdateKind=="archive"?$"解压目录：{s.UpdateTarget}":$"本地 EXE：{s.ExePath}\n文件版本：{(string.IsNullOrWhiteSpace(s.LocalVersion)?"未读取到":s.LocalVersion)}";
+            var prompt=$"仓库：{s.Repo}\n{local}\n最新 Release：{s.LatestVersion}\n\n只有你确定本地已经是上述 Release 时，才选择「是」。\n此操作仅记录版本对应关系，不会下载或安装更新。\n尚未更新时，请先点击「安装 / 更新」。";
+            if(MessageBox.Show(this,prompt,"确认已安装当前 Release",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No)!=MessageBoxResult.Yes)return;
+            await Task.Run(()=>InstallationConfirmation.Confirm(s));
+            s.Status=InstallationConfirmation.GetStatus(s);_db.Save(s);
+        }
+        catch(Exception ex){MessageBox.Show(this,ex.Message,"确认失败");}
+        finally{Reload();button.IsEnabled=true;}
+    }
+    private void ClearConfirmation_Click(object sender,RoutedEventArgs e)
+    {
+        if(Selected is not {} s)return;
+        try
+        {
+            InstallationConfirmation.Clear(s);
+            s.LocalVersion=VersionHelper.ReadExeVersion(s.ExePath);
+            s.Status=string.IsNullOrWhiteSpace(s.LatestVersion)?"尚未检查":InstallationConfirmation.GetStatus(s);
+            _db.Save(s);Reload();
+        }
+        catch(Exception ex){MessageBox.Show(this,ex.Message,"取消确认失败");}
     }
     private void Delete_Click(object sender,RoutedEventArgs e)
     {
@@ -82,6 +138,6 @@ public partial class MainWindow : Window
     }
     private void Grid_SelectionChanged(object sender,SelectionChangedEventArgs e)
     {
-        NotesBox.Text=Selected is {} s?$"仓库：{s.Repo}\n本地 EXE：{(string.IsNullOrEmpty(s.ExePath)?"未关联 · 点击「关联 EXE」选择软件主程序":s.ExePath)}\n\n{(string.IsNullOrWhiteSpace(s.ReleaseNotes)?"暂无发布说明，可点击「查看 Release」前往仓库查看。":s.ReleaseNotes)}":"还没有选择订阅。添加仓库后，在列表中选择软件即可查看详情。";
+        NotesBox.Text=Selected is {} s?$"仓库：{s.Repo}\n本地 EXE：{(string.IsNullOrEmpty(s.ExePath)?"未关联 · 点击「关联 EXE」选择软件主程序":s.ExePath)}\n解压目录：{s.UpdateTarget}\n文件版本：{s.LocalVersion} · 最新 Release：{s.LatestVersion}\n已确认的安装版本：{(string.IsNullOrEmpty(s.ConfirmedTag)?"无":s.ConfirmedTag)}\n\n{(string.IsNullOrWhiteSpace(s.ReleaseNotes)?"暂无发布说明，可点击「查看 Release」前往仓库查看。":s.ReleaseNotes)}":"还没有选择订阅。添加仓库后，在列表中选择软件即可查看详情。";
     }
 }

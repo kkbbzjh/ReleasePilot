@@ -1,4 +1,6 @@
 using ReleasePilot.Services;
+using ReleasePilot.Models;
+using Microsoft.Data.Sqlite;
 var cases = new (string Local,string Remote,string Expected)[] {
 ("0.2.0+7f0d62a83b4d41b5bd0fab6ef29fc1a26954e61c","v0.2.0","已是最新"),
 ("0.2.0.0","v0.2.0","已是最新"),
@@ -27,6 +29,58 @@ foreach(var (local,remote,expected) in cases) {
  if(result!=expected)throw new Exception($"{local} vs {remote}: expected {expected}, got {result}");
 }
 Console.WriteLine($"PASS {cases.Length} version comparisons");
+UpdateChecks.Run();
+var folder=Path.Combine(Path.GetTempPath(),"ReleasePilot-tests-"+Guid.NewGuid());
+Directory.CreateDirectory(folder);
+try
+{
+    // Exercise an existing v0.2.1 database, including repeatable migration and saved subscriptions.
+    using(var connection=new SqliteConnection($"Data Source={Path.Combine(folder,"subscriptions.db")}"))
+    {
+        connection.Open();using var command=connection.CreateCommand();
+        command.CommandText="CREATE TABLE subscriptions (repo TEXT PRIMARY KEY COLLATE NOCASE, exe_path TEXT NOT NULL DEFAULT '', local_version TEXT NOT NULL DEFAULT '', latest_version TEXT NOT NULL DEFAULT '', release_url TEXT NOT NULL DEFAULT '', release_notes TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT '尚未检查', checked_at TEXT NOT NULL DEFAULT ''); INSERT INTO subscriptions(repo) VALUES('owner/app')";
+        command.ExecuteNonQuery();
+    }
+    var db=new Database(folder);
+    var subscription=db.GetAll().Single();
+    Check(subscription.Repo=="owner/app" && subscription.ConfirmedTag=="","legacy data preserved");
+    subscription.ExePath=Path.Combine(folder,"app.exe");File.WriteAllText(subscription.ExePath,"original app bytes");
+    subscription.LocalVersion="custom-build";subscription.LatestVersion="release-a";
+    Check(InstallationConfirmation.GetStatus(subscription)=="需要确认","unknown version requires confirmation");
+    InstallationConfirmation.Confirm(subscription);
+    Check(InstallationConfirmation.GetStatus(subscription)=="已是最新（已确认）","confirmation resolves status");
+    subscription.UpdateKind="replace";subscription.UpdateTarget=subscription.ExePath;subscription.AssetName="app.exe";subscription.PreservePaths="config;settings.ini";subscription.UnwrapArchive=true;
+    db.Save(subscription);
+    subscription=new Database(folder).GetAll().Single();
+    Check(subscription.ConfirmedTag=="release-a" && InstallationConfirmation.GetStatus(subscription)=="已是最新（已确认）","confirmation persists after reopening database");
+    Check(subscription.UpdateKind=="replace" && subscription.UpdateTarget==subscription.ExePath && subscription.AssetName=="app.exe" && subscription.PreservePaths=="config;settings.ini" && subscription.UnwrapArchive,"update settings persist");
+    subscription.LatestVersion="release-b";
+    Check(InstallationConfirmation.GetStatus(subscription)=="发现新发布","new unknown release still detected");
+    subscription.ConfirmedTag="v1.0.0";subscription.LatestVersion="v1.1.0";
+    Check(InstallationConfirmation.GetStatus(subscription)=="发现更新","new numeric release still detected");
+    File.WriteAllText(subscription.ExePath,"different app bytes");
+    Check(InstallationConfirmation.GetStatus(subscription)=="本地文件已变化，请确认","changed file invalidates confirmation");
+    InstallationConfirmation.Clear(subscription);
+    Check(subscription.ConfirmedTag=="" && subscription.ConfirmedSha256=="" && InstallationConfirmation.GetStatus(subscription)=="需要确认","clear restores automatic comparison");
+    File.Delete(subscription.ExePath);
+    var rejected=false;
+    try{InstallationConfirmation.Confirm(subscription);}catch(IOException){rejected=true;}
+    Check(rejected,"missing file cannot be confirmed");
+    subscription.LatestVersion="";rejected=false;
+    try{InstallationConfirmation.Confirm(subscription);}catch(InvalidOperationException){rejected=true;}
+    Check(rejected,"missing release cannot be confirmed");
+    db.Save(subscription);db.Delete(subscription.Repo);
+    Check(db.GetAll().Count==0,"delete after migration");
+    Console.WriteLine("PASS 12 confirmation, SQLite migration and persistence checks");
+}
+finally
+{
+    SqliteConnection.ClearAllPools();Directory.Delete(folder,true);
+}
+static void Check(bool condition,string name)
+{
+    if(!condition)throw new Exception(name);
+}
 if(args.Length==2)
 {
     var actual=VersionHelper.ReadExeVersion(args[0]);

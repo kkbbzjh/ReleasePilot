@@ -9,4 +9,11 @@ public sealed class Subscription
     public string ReleaseNotes { get; set; } = "";
     public string ReleaseUrl { get; set; } = "";
     public string CheckedAt { get; set; } = "";
+    public string ConfirmedTag { get; set; } = "";
+    public string ConfirmedSha256 { get; set; } = "";
+    public string UpdateKind { get; set; } = "";
+    public string UpdateTarget { get; set; } = "";
+    public string AssetName { get; set; } = "";
+    public string PreservePaths { get; set; } = "";
+    public bool UnwrapArchive { get; set; }
 }
