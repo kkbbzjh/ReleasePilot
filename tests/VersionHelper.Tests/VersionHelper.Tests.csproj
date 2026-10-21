@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../../Services/BackgroundSettings.cs" Link="BackgroundSettings.cs" />
     <Compile Include="../../Services/VersionHelper.cs" Link="VersionHelper.cs" />
     <Compile Include="../../Services/InstallationConfirmation.cs" Link="InstallationConfirmation.cs" />
     <Compile Include="../../Services/Database.cs" Link="Database.cs" />

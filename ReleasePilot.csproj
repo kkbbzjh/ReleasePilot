@@ -3,13 +3,16 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ReleasePilot</AssemblyName>
-    <Version>0.2.6</Version>
+    <Version>0.3.0</Version>
     <ApplicationIcon>Assets/ReleasePilot.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
     <Compile Remove="tests/**/*.cs" />
     <Resource Include="Assets/logo.png" />
     <Resource Include="Assets/ReleasePilot.ico" />

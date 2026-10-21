@@ -25,11 +25,11 @@ static class UpdateChecks
             var target=Path.Combine(root,"target");Directory.CreateDirectory(Path.Combine(target,"config"));
             File.WriteAllText(Path.Combine(target,"app.exe"),"old app");File.WriteAllText(Path.Combine(target,"config/mpv.conf"),"my settings");File.WriteAllText(Path.Combine(target,"unrelated.txt"),"keep me");
             var backup=Path.Combine(root,"backup");
-            var count=UpdateService.ApplyDirectory(stage,target,backup,"config/mpv.conf",true);
+            var count=UpdateService.ApplyDirectory(stage,target,"config/mpv.conf",true);
             Assert(count==2 && File.ReadAllText(Path.Combine(target,"app.exe"))=="new app","archive applies updated files");
             Assert(File.ReadAllText(Path.Combine(target,"config/mpv.conf"))=="my settings","custom config preserved");
             Assert(File.ReadAllText(Path.Combine(target,"unrelated.txt"))=="keep me","unrelated file retained");
-            Assert(File.ReadAllText(Path.Combine(backup,"app.exe"))=="old app","old version backed up");
+            Assert(!Directory.Exists(backup),"no backup directory created");
             var sevenProgress=new RecordedProgress();
             var seven=UpdateService.Extract(Path.Combine(AppContext.BaseDirectory,"Fixtures/tiny.7z"),Path.Combine(root,"seven"),CancellationToken.None,sevenProgress);
             Assert(File.ReadAllText(Path.Combine(seven,"portable/hello.txt"))=="hello from 7z\n","real 7z payload extracted");
@@ -50,9 +50,9 @@ static class UpdateChecks
             try{UpdateService.Extract(zip,Path.Combine(root,"canceled"),cancel);}catch(OperationCanceledException){canceled=true;}
             Assert(canceled,"cancellation before extraction");
             var replacement=Path.Combine(root,"replacement.exe");File.WriteAllText(replacement,"replacement bytes");
-            UpdateService.ReplaceFile(replacement,Path.Combine(target,"app.exe"),Path.Combine(root,"replace-backup"));
+            UpdateService.ReplaceFile(replacement,Path.Combine(target,"app.exe"));
             Assert(File.ReadAllText(Path.Combine(target,"app.exe"))=="replacement bytes","single-file replacement");
-            Assert(File.ReadAllText(Path.Combine(root,"replace-backup/original/app.exe"))=="new app","single-file original backed up");
+            Assert(!Directory.Exists(Path.Combine(root,"replace-backup")),"replacement creates no backup");
             Reject(()=>UpdateService.ValidatePackage(replacement),"non-PE EXE must be rejected");
             var msi=UpdateService.InstallerStartInfo(Path.Combine(root,"installer with spaces.msi"));
             Assert(msi.FileName=="msiexec.exe" && msi.ArgumentList[0]=="/i" && msi.ArgumentList[1].EndsWith("installer with spaces.msi"),"MSI interactive arguments preserve spaces");
@@ -60,7 +60,7 @@ static class UpdateChecks
             Reject(()=>UpdateService.InstallerStartInfo(zip),"ZIP must not launch as installer");
             var broken=Path.Combine(root,"broken-stage");Directory.CreateDirectory(Path.Combine(broken,"z"));File.WriteAllText(Path.Combine(broken,"a.txt"),"changed");File.WriteAllText(Path.Combine(broken,"z/child.txt"),"cannot copy");
             var rollback=Path.Combine(root,"rollback-target");Directory.CreateDirectory(rollback);File.WriteAllText(Path.Combine(rollback,"a.txt"),"original");File.WriteAllText(Path.Combine(rollback,"z"),"blocks directory creation");
-            Reject(()=>UpdateService.ApplyDirectory(broken,rollback,Path.Combine(root,"rollback-backup"),"",false),"failed update must report failure");
+            Reject(()=>UpdateService.ApplyDirectory(broken,rollback,"",false),"failed update must report failure");
             Assert(File.ReadAllText(Path.Combine(rollback,"a.txt"))=="original","partial update rolled back");
             var subscription=new Subscription {UpdateKind="archive",UpdateTarget=target,LatestVersion="config-2026.10"};
             InstallationConfirmation.Confirm(subscription);
@@ -78,9 +78,9 @@ static class UpdateChecks
                 if(process.ExitCode!=0)throw new Exception("Failed to create Windows junction test fixture");
             }
             else Directory.CreateSymbolicLink(link,target);
-            Reject(()=>UpdateService.ApplyDirectory(stage,link,Path.Combine(root,"link-backup"),"",true),"linked installation directory rejected");
+            Reject(()=>UpdateService.ApplyDirectory(stage,link,"",true),"linked installation directory rejected");
             Directory.Delete(link);
-            Console.WriteLine($"PASS {checks} archive, installer, replacement, backup and rollback checks");
+            Console.WriteLine($"PASS {checks} archive, installer, replacement, no-backup and preflight checks");
         }
         finally{Directory.Delete(root,true);}
     }

@@ -90,7 +90,7 @@ public partial class UpdateWindow : Window
         TargetInput.IsEnabled=BrowseButton.IsEnabled=!installer;
         TargetInput.Text=archive?(_subscription.UpdateKind=="archive"?_subscription.UpdateTarget:Path.GetDirectoryName(_subscription.ExePath)??""):_subscription.ExePath;
         ArchiveOptions.Visibility=archive?Visibility.Visible:Visibility.Collapsed;
-        Explanation.Text=archive?"解压后合并到目标目录：同名文件先备份再覆盖，未包含的本地文件保留。配置包按安装记录追踪版本。":installer?"会启动安装向导；下载完成不代表安装成功。安装后需要你确认，再记录版本。":"请关闭目标软件。先备份旧 EXE，再替换；更新 ReleasePilot 自身时会退出并自动重启。";
+        Explanation.Text=archive?"解压后合并到目标目录：同名文件直接覆盖，不创建备份，未包含的本地文件保留。配置包按安装记录追踪版本。":installer?"会启动安装向导；下载完成不代表安装成功。安装后需要你确认，再记录版本。":"请关闭目标软件。直接替换 EXE，不创建备份；更新 ReleasePilot 自身时会退出并自动重启。";
     }
     private void Browse_Click(object sender,RoutedEventArgs e)
     {
@@ -126,7 +126,7 @@ public partial class UpdateWindow : Window
             }
         }
         catch(Exception ex){AppDialog.Show(this,ex.Message,"请检查目标位置",MessageBoxButton.OK,MessageBoxImage.Error);return;}
-        var action=kind=="installer"?"启动安装程序，由你完成安装向导":kind=="archive"?$"解压并覆盖到：{target}\n保留路径：{(string.IsNullOrWhiteSpace(preserve)?"无（同名文件将备份后覆盖）":preserve)}\n去掉顶层目录：{(unwrap?"是":"否")}":$"备份并替换：{target}";
+        var action=kind=="installer"?"启动安装程序，由你完成安装向导":kind=="archive"?$"解压并覆盖到：{target}\n保留路径：{(string.IsNullOrWhiteSpace(preserve)?"无（同名文件将直接覆盖，不创建备份）":preserve)}\n去掉顶层目录：{(unwrap?"是":"否")}":$"直接替换（不备份）：{target}";
         if(AppDialog.Show(this,$"操作：{(repair?"重新安装此版本（重新下载附件）":"安装 / 更新")}\nRelease：{_release.Tag}\n附件：{asset.Name}\n识别结果：{option.Platform} · {option.Architecture}\n{option.Explanation}\n\n{action}\n\n{(repair?"修复安装仍遵守保留路径规则，不会清空目标目录。\n":"")}确认继续？",repair?"确认重新安装":"确认更新",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No)!=MessageBoxResult.Yes)return;
         _busy=true;OptionsPanel.IsEnabled=false;ApplyButton.IsEnabled=false;DownloadProgress.Visibility=Visibility.Visible;CancelButton.Content="取消下载";
         using var cancellation=new CancellationTokenSource(TimeSpan.FromMinutes(30));_cancellation=cancellation;
@@ -184,8 +184,8 @@ public partial class UpdateWindow : Window
             }
             else if(kind=="archive")
             {
-                ProgressText.Text="正在备份并应用更新，请勿关闭窗口…";
-                await Task.Run(()=>UpdateService.ApplyDirectory(stage!,target,Path.Combine(workspace,"backup"),preserve,unwrap));
+                ProgressText.Text="正在应用更新，请勿关闭窗口…";
+                await Task.Run(()=>UpdateService.ApplyDirectory(stage!,target,preserve,unwrap));
             }
             else if(UpdateService.IsSelf(target))
             {
@@ -194,8 +194,8 @@ public partial class UpdateWindow : Window
             }
             else
             {
-                ProgressText.Text="正在备份并替换 EXE…";
-                await Task.Run(()=>UpdateService.ReplaceFile(downloaded,target,Path.Combine(workspace,"backup")));
+                ProgressText.Text="正在替换 EXE…";
+                await Task.Run(()=>UpdateService.ReplaceFile(downloaded,target));
                 _subscription.ExePath=target;
             }
             _subscription.UpdateKind=kind;_subscription.UpdateTarget=target;_subscription.AssetName=asset.Name;_subscription.PreservePaths=preserve;
@@ -204,13 +204,17 @@ public partial class UpdateWindow : Window
             _subscription.LocalVersion=VersionHelper.ReadExeVersion(_subscription.ExePath);
             await Task.Run(()=>InstallationConfirmation.Confirm(_subscription));
             _subscription.Status=InstallationConfirmation.GetStatus(_subscription);_save();
-            ProgressText.Text=$"{(repair?"重新安装完成":"更新完成")}：{_release.Tag}\n旧文件备份与下载文件保留在：{workspace}";
+            ProgressText.Text=$"{(repair?"重新安装完成":"更新完成")}：{_release.Tag}\n未创建备份。";
             _completed=true;ApplyButton.Content=repair?"重新安装完成":"更新完成";
         }
         catch(OperationCanceledException){ProgressText.Text="更新已取消，尚未修改目标文件。";ApplyButton.IsEnabled=true;}
-        catch(Exception ex){ProgressText.Text=$"更新未完成：{ex.Message}\n下载及备份目录：{workspace}";ApplyButton.IsEnabled=true;}
+        catch(Exception ex){ProgressText.Text=$"更新未完成：{ex.Message}";ApplyButton.IsEnabled=true;}
         finally
         {
+            if(!Restarting && kind!="installer" && Directory.Exists(workspace))
+            {
+                try{Directory.Delete(workspace,true);}catch(IOException){}catch(UnauthorizedAccessException){}
+            }
             _busy=false;_applying=false;_cancellation=null;OptionsPanel.IsEnabled=true;CancelButton.IsEnabled=true;CancelButton.Content="关闭";DownloadProgress.Visibility=Visibility.Collapsed;
             CurrentFileText.Text="";ProgressDetails.Text="";DownloadProgress.IsIndeterminate=true;UpdateApplyState();
         }

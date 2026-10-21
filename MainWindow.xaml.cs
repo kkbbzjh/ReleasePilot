@@ -15,6 +15,11 @@ public partial class MainWindow : Window
     private Subscription? Selected=>SubscriptionsGrid.SelectedItem as Subscription;
     public MainWindow():this(new Database()) { }
     public MainWindow(Database database){_db=database;InitializeComponent();SubscriptionsGrid.ItemsSource=_items;Reload();}
+    public Action? ConfigureBackground {get;set;}
+    public bool IsChecking {get;private set;}
+    public void RefreshSubscriptions(){if(!IsChecking && OwnedWindows.Count==0)Reload();}
+    public void SetBackgroundStatus(string text)=>StatusText.Text=text;
+    private void Background_Click(object sender,RoutedEventArgs e)=>ConfigureBackground?.Invoke();
     private void Reload()
     {
         var selectedRepo=Selected?.Repo;
@@ -55,10 +60,11 @@ public partial class MainWindow : Window
     }
     private async void CheckAll_Click(object sender,RoutedEventArgs e)
     {
-        if(_items.Count==0)return;
+        if(_items.Count==0||IsChecking)return;
+        IsChecking=true;
         if(sender is Button b)b.IsEnabled=false;
         try{foreach(var s in _items.ToList()){await CheckOne(s);await Task.Delay(400);}Reload();StatusText.Text="检查完成";}
-        finally{if(sender is Button button)button.IsEnabled=true;}
+        finally{IsChecking=false;if(sender is Button button)button.IsEnabled=true;}
     }
     private async void LinkExe_Click(object sender,RoutedEventArgs e)
     {
@@ -134,7 +140,7 @@ public partial class MainWindow : Window
     private void Delete_Click(object sender,RoutedEventArgs e)
     {
         if(Selected is not {} s)return;
-        if(AppDialog.Show(this,$"确定删除 {s.Repo} 的订阅？\n仅移除订阅记录，不删除本地软件或备份。","删除订阅",MessageBoxButton.YesNo,MessageBoxImage.Warning,MessageBoxResult.No)!=MessageBoxResult.Yes)return;
+        if(AppDialog.Show(this,$"确定删除 {s.Repo} 的订阅？\n仅移除订阅记录，不删除本地软件。","删除订阅",MessageBoxButton.YesNo,MessageBoxImage.Warning,MessageBoxResult.No)!=MessageBoxResult.Yes)return;
         _db.Delete(s.Repo);Reload();
     }
     private void Grid_SelectionChanged(object sender,SelectionChangedEventArgs e)

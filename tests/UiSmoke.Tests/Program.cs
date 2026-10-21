@@ -49,6 +49,10 @@ internal static class Program
         var db=new Database(folder);db.Save(subscription);
         var main=new MainWindow(db);main.Show();await Pump();
         ((DataGrid)main.FindName("SubscriptionsGrid")).SelectedIndex=0;await Pump();Capture(main,"subscriptions");
+        var settings=new BackgroundWindow(new BackgroundSettings()){Owner=main};settings.Show();await Pump();
+        Check(((CheckBox)settings.FindName("EnabledOption")).IsChecked==false,"background monitoring defaults to opt in");
+        Check(((TextBox)settings.FindName("IntervalInput")).Text=="60","background interval defaults to one hour");
+        Capture(settings,"background-settings");settings.Close();
         var addButton=FindVisual<Button>(main).First(button=>Equals(button.Content,"＋ 添加订阅"));
         Check(ReferenceEquals(addButton.Style,main.FindResource("PrimaryButton")),"main primary action uses the shared theme");
         var release=new ReleaseInfo("v1.2.0","https://github.com/owner/example/releases/tag/v1.2.0","Example notes",[
@@ -110,7 +114,7 @@ internal static class Program
         Check(ReferenceEquals(selectAll.CommandTarget,input),"edit commands target the textbox that opened the menu");
         System.Windows.Input.ApplicationCommands.SelectAll.Execute(null,input);
         Check(input.SelectionLength==input.Text.Length,"text selection still works with the shared edit menu");menu.IsOpen=false;
-        var dialog=new DialogWindow("将下载更新并覆盖目标目录中的同名文件。\n旧文件会在本机备份。","确认更新",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No) {Owner=update};
+        var dialog=new DialogWindow("将下载更新并覆盖目标目录中的同名文件。\n直接覆盖，不创建备份。","确认更新",MessageBoxButton.YesNo,MessageBoxImage.Question,MessageBoxResult.No) {Owner=update};
         dialog.Show();await Pump();
         Check(ReferenceEquals(((Button)dialog.FindName("PrimaryButton")).Style,apply.Style),"confirmation shares the primary action style");
         Check(((Button)dialog.FindName("SecondaryButton")).IsDefault && !((Button)dialog.FindName("PrimaryButton")).IsDefault,"confirmation defaults to cancel");Capture(dialog,"confirmation");dialog.Close();

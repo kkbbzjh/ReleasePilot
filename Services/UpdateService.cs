@@ -144,7 +144,7 @@ public static class UpdateService
         Report(true,true);
         return stage;
     }
-    public static int ApplyDirectory(string stage,string target,string backup,string preserve,bool unwrap)
+    public static int ApplyDirectory(string stage,string target,string preserve,bool unwrap)
     {
         target=Path.GetFullPath(target);RejectLinks(target);
         var preserved=PreservedPaths(preserve);
@@ -158,51 +158,35 @@ public static class UpdateService
             .Select(source=>(Source:source,Relative:SafeRelative(Path.GetRelativePath(stage,source))))
             .Where(file=>!IsPreserved(file.Relative,preserved)).OrderBy(file=>file.Relative,StringComparer.Ordinal).ToArray();
         if(files.Length==0)throw new IOException("保留规则排除了全部文件，没有执行更新。");
-        // Back up every overwritten file before changing the installation.
         foreach(var file in files)
         {
             var destination=Path.Combine(target,file.Relative);RejectLinks(destination);
             if(Directory.Exists(destination))throw new IOException($"目标文件与目录冲突：{file.Relative}");
-            if(File.Exists(destination))
-            {
-                var saved=Path.Combine(backup,file.Relative);Directory.CreateDirectory(Path.GetDirectoryName(saved)!);File.Copy(destination,saved,false);
-            }
+            for(var parent=Path.GetDirectoryName(destination);parent is not null;parent=Path.GetDirectoryName(parent))
+                if(File.Exists(parent))throw new IOException($"目标目录与文件冲突：{parent}");
         }
-        var applied=new List<string>();
         try
         {
             foreach(var file in files)
             {
                 var destination=Path.Combine(target,file.Relative);RejectLinks(destination);
                 Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-                var temporary=destination+".releasepilot-"+Guid.NewGuid().ToString("N");
-                try{File.Copy(file.Source,temporary,false);File.Move(temporary,destination,true);applied.Add(file.Relative);}
-                finally{if(File.Exists(temporary))File.Delete(temporary);}
+                CopyAndReplace(file.Source,destination);
             }
         }
-        catch(Exception original)
-        {
-            var failures=new List<string>();
-            foreach(var relative in applied.AsEnumerable().Reverse())
-            {
-                try
-                {
-                    var destination=Path.Combine(target,relative);var saved=Path.Combine(backup,relative);
-                    if(File.Exists(saved))File.Copy(saved,destination,true);else File.Delete(destination);
-                }
-                catch(Exception ex){failures.Add(ex.Message);}
-            }
-            throw new IOException(failures.Count==0?"更新失败，已恢复被修改的文件。请关闭目标软件后重试。":$"更新失败，部分文件恢复失败。备份位于 {backup}。",original);
-        }
+        catch(Exception ex){throw new IOException("更新未完成，可能已有部分文件被更新。请关闭目标软件后重试；没有创建备份。",ex);}
         return files.Length;
     }
-    public static void ReplaceFile(string source,string target,string backup)
+    private static void CopyAndReplace(string source,string target)
+    {
+        var temporary=target+".releasepilot-"+Guid.NewGuid().ToString("N");
+        try{File.Copy(source,temporary,false);File.Move(temporary,target,true);}
+        finally{if(File.Exists(temporary))File.Delete(temporary);}
+    }
+    public static void ReplaceFile(string source,string target)
     {
         if(!File.Exists(target))throw new IOException("请先选择已存在的本地 EXE。");
-        RejectLinks(target);Directory.CreateDirectory(backup);
-        var stage=Path.Combine(backup,"replacement");Directory.CreateDirectory(stage);
-        File.Copy(source,Path.Combine(stage,Path.GetFileName(target)));
-        ApplyDirectory(stage,Path.GetDirectoryName(Path.GetFullPath(target))!,Path.Combine(backup,"original"),"",false);
+        RejectLinks(target);CopyAndReplace(source,target);
     }
     public static ProcessStartInfo InstallerStartInfo(string path)
     {
@@ -216,14 +200,14 @@ public static class UpdateService
         return new ProcessStartInfo(Path.GetFullPath(path)) {UseShellExecute=true,WorkingDirectory=Path.GetDirectoryName(Path.GetFullPath(path))!};
     }
     public static bool IsSelf(string path)=>Path.GetFullPath(path).Equals(Environment.ProcessPath,StringComparison.OrdinalIgnoreCase);
-    public sealed record SelfUpdatePlan(int ParentId,string Source,string Target,string Backup,string Digest,string Repo,ReleaseInfo Release);
+    public sealed record SelfUpdatePlan(int ParentId,string Source,string Target,string Digest,string Repo,ReleaseInfo Release);
     public static void StartSelfReplacement(string source,string target,string workspace,string repo,ReleaseInfo release)
     {
         RejectLinks(target);
         if(!OperatingSystem.IsWindows() || !string.Equals(Path.GetExtension(Environment.ProcessPath),".exe",StringComparison.OrdinalIgnoreCase))
             throw new IOException("自更新需要运行发布的 Windows 单文件版本。");
         using var file=File.OpenRead(source);
-        var plan=new SelfUpdatePlan(Environment.ProcessId,source,Path.GetFullPath(target),Path.Combine(workspace,"backup"),Convert.ToHexString(SHA256.HashData(file)),repo,release);
+        var plan=new SelfUpdatePlan(Environment.ProcessId,source,Path.GetFullPath(target),Convert.ToHexString(SHA256.HashData(file)),repo,release);
         var planPath=Path.Combine(workspace,"plan.json");
         File.WriteAllText(planPath,System.Text.Json.JsonSerializer.Serialize(plan));
         var helper=Path.Combine(workspace,"ReleasePilot.UpdateHelper.exe");
@@ -247,9 +231,11 @@ public static class UpdateService
             var digest=Convert.ToHexString(await SHA256.HashDataAsync(file,timeout.Token));
             if(digest!=plan.Digest)throw new IOException("自更新附件 SHA256 不匹配。");
         }
-        ReplaceFile(plan.Source,plan.Target,plan.Backup);
+        ReplaceFile(plan.Source,plan.Target);
         RecordReplacement(new Database(),plan.Repo,plan.Target,plan.Release);
-        _=Process.Start(new ProcessStartInfo(plan.Target) {UseShellExecute=true})??throw new IOException("更新完成，但无法自动重启，请手动启动软件。");
+        var start=new ProcessStartInfo(plan.Target) {UseShellExecute=true};
+        start.ArgumentList.Add("--cleanup-update");start.ArgumentList.Add(Path.GetDirectoryName(Path.GetFullPath(planPath))!);start.ArgumentList.Add(Environment.ProcessId.ToString());
+        _=Process.Start(start)??throw new IOException("更新完成，但无法自动重启，请手动启动软件。");
     }
     public static void RecordReplacement(Database database,string repo,string target,ReleaseInfo release)
     {
